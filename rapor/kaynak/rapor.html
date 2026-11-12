@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Yemekhane Otomasyonu – Rapor</title>
+<style>
+  @page { size: A4; margin: 16mm 15mm 18mm; }
+  :root { --metin: #1d232a; --soluk: #5b6672; --cizgi: #d7dde3; --zemin: #f4f6f8; --vurgu: #0b6e4f; --hata: #a3271b; }
+  * { box-sizing: border-box; }
+  body { font-family: "Segoe UI", Arial, sans-serif; color: var(--metin); font-size: 10.5pt; line-height: 1.45; margin: 0; }
+  h1 { font-size: 22pt; margin: 0 0 4mm; }
+  h2 { font-size: 15pt; margin: 0 0 3mm; padding-bottom: 1.5mm; border-bottom: 2px solid var(--vurgu); }
+  h3 { font-size: 11.5pt; margin: 6mm 0 2mm; }
+  p { margin: 0 0 2.5mm; }
+  .bolum { break-before: page; }
+  .kapak { min-height: 240mm; display: flex; flex-direction: column; justify-content: center; }
+  .kapak .alt { color: var(--soluk); font-size: 12pt; margin-bottom: 12mm; }
+  .yol { border: 2px solid var(--vurgu); border-radius: 3mm; padding: 6mm 7mm; margin: 0 0 10mm; }
+  .yol .etiket { font-size: 9pt; letter-spacing: .08em; text-transform: uppercase; color: var(--soluk); }
+  .yol .deger { font-size: 20pt; font-weight: 700; color: var(--vurgu); margin: 1mm 0 2mm; }
+  table { border-collapse: collapse; width: 100%; margin: 2mm 0 4mm; font-size: 9.5pt; }
+  th, td { border: 1px solid var(--cizgi); padding: 1.6mm 2.2mm; text-align: left; vertical-align: top; }
+  th { background: var(--zemin); }
+  code { font-family: Consolas, "Courier New", monospace; font-size: 9pt; background: var(--zemin); padding: 0 1mm; border-radius: 1mm; }
+  pre { font-family: Consolas, "Courier New", monospace; font-size: 7.8pt; line-height: 1.35; background: var(--zemin); border: 1px solid var(--cizgi);
+        border-left: 3px solid var(--vurgu); padding: 2.5mm 3mm; margin: 1.5mm 0 3mm; white-space: pre-wrap; word-break: break-all; break-inside: avoid; }
+  pre .komut { color: var(--vurgu); font-weight: 700; }
+  pre .hata { color: var(--hata); font-weight: 700; }
+  .sonuc { border-left: 3px solid var(--vurgu); padding: 1mm 0 1mm 3mm; margin: 2mm 0 4mm; }
+  .not { color: var(--soluk); font-size: 9pt; }
+  .durum td:last-child { white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<!-- ============================ KAPAK ============================ -->
+<section class="kapak">
+  <h1>Yemekhane Otomasyonu</h1>
+  <p class="alt">Web Teknolojileri · Dönem Ödevi Raporu<br>Hazırlayan: Enes</p>
+
+  <div class="yol">
+    <div class="etiket">Seçilen yol</div>
+    <div class="deger">Web API + arayüz</div>
+    <p>Uygulama (Spring Boot 3, Java 21) yalnızca JSON döner. HTML5 + CSS3 arayüz <code>frontend</code> container'ında durur ve veriyi
+       JavaScript <code>fetch</code> ile alır; React gibi bir çerçeve kullanılmaz. Apache <code>/api/</code> isteklerini
+       <code>uygulama</code> servisine iletir (<code>-D WEBAPI</code>).</p>
+  </div>
+
+  <table class="durum">
+    <tr><th>Bölüm</th><th>Durum</th></tr>
+    <tr><td>Aşama 1 · Altyapı – dört doğrulama, komutlar ve çıktılar</td><td>Tamamlandı (12.11.2026)</td></tr>
+    <tr><td>Aşama 2 · Uygulama</td><td>Hazırlanıyor</td></tr>
+    <tr><td>Aşama 3 · Redis</td><td>Hazırlanıyor</td></tr>
+    <tr><td>Aşama 4 · Değişiklik talebi</td><td>Hazırlanıyor</td></tr>
+    <tr><td>Varsayımlar</td><td>Güncel</td></tr>
+  </table>
+</section>
+
+<!-- ============================ MİMARİ ============================ -->
+<section class="bolum">
+  <h2>Sistem mimarisi</h2>
+  <p>Sistem altı container'dan oluşur. Tarayıcı yalnızca Apache ile konuşur; veritabanına yalnızca uygulamanın veri katmanı ulaşır.
+     Yazmalar kaynak sunucuya (<code>mysql-primary</code>), okumalar replikaya (<code>mysql-replica</code>) gider. Container'lar birbirine
+     servis adı ve iç port ile bağlanır; 3307 / 3308 / 6379 dış portları yalnızca geliştirme bilgisayarından erişim içindir.</p>
+  <table>
+    <tr><th>Servis</th><th>Görevi</th><th>Erişim</th></tr>
+    <tr><td><code>frontend</code></td><td>Apache 2.4: HTML/CSS/JS sunar, <code>/api/</code> isteklerini uygulamaya iletir</td><td>localhost:8080</td></tr>
+    <tr><td><code>uygulama</code></td><td>Spring Boot Web API (Aşama 2'de eklenecek)</td><td>uygulama:8000 (yalnızca iç ağ)</td></tr>
+    <tr><td><code>mysql-primary</code></td><td>Yazma; şema ve örnek veri ilk açılışta yüklenir</td><td>mysql-primary:3306 · localhost:3307</td></tr>
+    <tr><td><code>mysql-replica</code></td><td>Okuma; salt okunur, aynı zamanda yedek</td><td>mysql-replica:3306 · localhost:3308</td></tr>
+    <tr><td><code>replica-setup</code></td><td>Replikayı GTID ile bir kez kurar, salt okunur yapar ve çıkar</td><td>–</td></tr>
+    <tr><td><code>redis</code></td><td>Menü önbelleği ve oturum deposu (AOF açık)</td><td>redis:6379 · localhost:6379</td></tr>
+  </table>
+</section>
+
+<!-- ============================ AŞAMA 1 ============================ -->
+<section class="bolum">
+  <h2>Aşama 1 · Altyapı</h2>
+  <p>Başlangıç paketi temiz bir kurulumla (<code>docker compose up -d</code>, önceden volume yokken) çalıştırıldı ve dört madde doğrulandı.
+     Tüm komutlar depo kökünden, Windows 11 + Docker Desktop 29.7.2 üzerinde 12.11.2026'da çalıştırıldı.</p>
+  <p class="not">Not: Çıktılardaki <code>mysql: [Warning] Using a password on the command line interface can be insecure.</code> satırı
+     (parolayı komut satırında verdiğimiz için) okunabilirlik amacıyla çıkarıldı. Ham çıktılar <code>rapor/asama-1/</code> klasöründedir.
+     Türkçe karakterlerin doğru görünmesi için istemciye <code>--default-character-set=utf8mb4</code> verildi.</p>
+
+  <h3>1. Tüm servisler healthy, replica-setup başarıyla çıkmış</h3>
+<pre><span class="komut">&gt; docker compose ps -a</span>
+NAME                        IMAGE                COMMAND                  SERVICE         CREATED          STATUS                      PORTS
+yemekhane-frontend-1        yemekhane-frontend   "httpd-foreground -D…"   frontend        28 seconds ago   Up 28 seconds (healthy)     0.0.0.0:8080->80/tcp, [::]:8080->80/tcp
+yemekhane-mysql-primary-1   mysql:8.4            "docker-entrypoint.s…"   mysql-primary   28 seconds ago   Up 28 seconds (healthy)     0.0.0.0:3307->3306/tcp, [::]:3307->3306/tcp
+yemekhane-mysql-replica-1   mysql:8.4            "docker-entrypoint.s…"   mysql-replica   28 seconds ago   Up 28 seconds (healthy)     0.0.0.0:3308->3306/tcp, [::]:3308->3306/tcp
+yemekhane-redis-1           redis:7.4-alpine     "docker-entrypoint.s…"   redis           28 seconds ago   Up 28 seconds (healthy)     0.0.0.0:6379->6379/tcp, [::]:6379->6379/tcp
+yemekhane-replica-setup-1   mysql:8.4            "bash /replica-setup…"   replica-setup   28 seconds ago   Exited (0) 17 seconds ago</pre>
+<pre><span class="komut">&gt; docker compose logs replica-setup --no-log-prefix</span>
+[replica-setup] Kaynakta replikasyon kullanıcısı oluşturuluyor.
+[replica-setup] Kaynağın anlık kopyası alınıyor.
+[replica-setup] Kopya replikaya yükleniyor.
+[replica-setup] Replikasyon başlatılıyor.
+[replica-setup] Replikasyon çalışıyor (IO=Yes, SQL=Yes). Replika salt okunur.</pre>
+<pre><span class="komut">&gt; docker compose exec -T mysql-replica mysql -uroot -pyemekhane_kok -e 'SHOW REPLICA STATUS\G' | grep -E 'Source_Host|Replica_IO_Running|Replica_SQL_Running|Seconds_Behind_Source|Auto_Position|Last_.*Error:'</span>
+                  Source_Host: mysql-primary
+           Replica_IO_Running: Yes
+          Replica_SQL_Running: Yes
+                   Last_Error:
+        Seconds_Behind_Source: 0
+                Last_IO_Error:
+               Last_SQL_Error:
+    Replica_SQL_Running_State: Replica has read all relay log; waiting for more updates
+                Auto_Position: 1
+
+<span class="komut">&gt; docker compose exec -T mysql-replica mysql -uroot -pyemekhane_kok -e 'SELECT @@read_only, @@super_read_only'</span>
+@@read_only	@@super_read_only
+1	1
+
+<span class="komut">&gt; docker compose exec -T mysql-replica mysql -uyemekhane_app -pUyg_2026 yemekhane -e 'SELECT (SELECT COUNT(*) FROM kullanicilar) kullanici, (SELECT COUNT(*) FROM yemekler) yemek, (SELECT COUNT(*) FROM menuler) menu, (SELECT COUNT(*) FROM rezervasyonlar) rezervasyon'</span>
+kullanici	yemek	menu	rezervasyon
+30	52	84	367</pre>
+  <p class="sonuc">Beş servis <b>healthy</b>, tek seferlik <code>replica-setup</code> <b>Exited (0)</b>. Replikasyonun iki thread'i de çalışıyor
+     (IO = Yes, SQL = Yes), GTID otomatik konumlandırma açık (<code>Auto_Position: 1</code>), replika salt okunur ve örnek verinin tamamı replikada.</p>
+
+  <h3>2. Kaynakta yapılan bakiye yüklemesi replikada görünüyor</h3>
+<pre><span class="komut">&gt; docker compose exec -T mysql-replica mysql -t --default-character-set=utf8mb4 -uyemekhane_app -pUyg_2026 yemekhane -e "SELECT k.id, k.ad, k.bakiye, (SELECT SUM(tutar) FROM bakiye_hareketleri WHERE kullanici_id = k.id) AS hareket_toplami FROM kullanicilar k WHERE k.id = 7"</span>
++------+--------+--------+-----------------+
+| id   | ad     | bakiye | hareket_toplami |
++------+--------+--------+-----------------+
+|    7 | Mehmet | 455.00 |          455.00 |
++------+--------+--------+-----------------+
+
+<span class="komut">&gt; docker compose exec -T mysql-primary mysql -t --default-character-set=utf8mb4 -uyemekhane_app -pUyg_2026 yemekhane -e 'CALL sp_bakiye_yukle(7, 100)'</span>
++------------+--------+
+| hareket_id | bakiye |
++------------+--------+
+|        456 | 555.00 |
++------------+--------+
+
+<span class="komut">&gt; docker compose exec -T mysql-replica mysql -t --default-character-set=utf8mb4 -uyemekhane_app -pUyg_2026 yemekhane -e "SELECT k.id, k.ad, k.bakiye, (SELECT SUM(tutar) FROM bakiye_hareketleri WHERE kullanici_id = k.id) AS hareket_toplami FROM kullanicilar k WHERE k.id = 7"</span>
++------+--------+--------+-----------------+
+| id   | ad     | bakiye | hareket_toplami |
++------+--------+--------+-----------------+
+|    7 | Mehmet | 555.00 |          555.00 |
++------+--------+--------+-----------------+
+
+<span class="komut">&gt; docker compose exec -T mysql-replica mysql -t --default-character-set=utf8mb4 -uyemekhane_app -pUyg_2026 yemekhane -e "SELECT id, kullanici_id, tur, tutar, aciklama, olusturma FROM bakiye_hareketleri WHERE kullanici_id = 7 ORDER BY id DESC LIMIT 1"</span>
++-----+--------------+---------+--------+-----------------+---------------------+
+| id  | kullanici_id | tur     | tutar  | aciklama        | olusturma           |
++-----+--------------+---------+--------+-----------------+---------------------+
+| 456 |            7 | yukleme | 100.00 | Bakiye yükleme  | 2026-11-12 03:10:15 |
++-----+--------------+---------+--------+-----------------+---------------------+</pre>
+  <p class="sonuc">Yükleme kaynakta <code>sp_bakiye_yukle</code> yordamıyla yapıldı (para hareketi SQL ile yazılmadı). Replikadaki bakiye
+     455,00 → 555,00 oldu ve yeni hareket satırı da replikaya geçti. Bakiye her adımda hareketlerin toplamına eşit.</p>
+
+  <h3>3. Replikaya yazma denemesi read-only hatasıyla reddediliyor</h3>
+<pre><span class="komut">&gt; docker compose exec -T mysql-replica mysql -t --default-character-set=utf8mb4 -uyemekhane_app -pUyg_2026 yemekhane -e 'CALL sp_bakiye_yukle(7, 50)'</span>
+<span class="hata">ERROR 1290 (HY000) at line 1: The MySQL server is running with the --super-read-only option so it cannot execute this statement</span>
+
+<span class="komut">&gt; docker compose exec -T mysql-replica mysql -t --default-character-set=utf8mb4 -uyemekhane_app -pUyg_2026 yemekhane -e "UPDATE kullanicilar SET bakiye = 9999 WHERE id = 7"</span>
+<span class="hata">ERROR 1290 (HY000) at line 1: The MySQL server is running with the --read-only option so it cannot execute this statement</span>
+
+<span class="komut">&gt; docker compose exec -T mysql-replica mysql -t --default-character-set=utf8mb4 -uyemekhane_app -pUyg_2026 yemekhane -e "SELECT k.id, k.ad, k.bakiye, (SELECT SUM(tutar) FROM bakiye_hareketleri WHERE kullanici_id = k.id) AS hareket_toplami FROM kullanicilar k WHERE k.id = 7"</span>
++------+--------+--------+-----------------+
+| id   | ad     | bakiye | hareket_toplami |
++------+--------+--------+-----------------+
+|    7 | Mehmet | 555.00 |          555.00 |
++------+--------+--------+-----------------+</pre>
+  <p class="sonuc">Her iki yazma denemesi de <b>ERROR 1290 (read-only)</b> ile reddedildi ve replikadaki veri değişmedi. İki farklı mesajın
+     nedeni: <code>UPDATE</code> uygulama kullanıcısının yetkisiyle çalışır ve <code>read_only</code> tarafından durdurulur; yordam ise sahibinin
+     (<code>DEFINER = root@localhost</code>) yetkisiyle çalışır, root'u yalnızca <code>super_read_only</code> durdurabilir. Replikada ikisi de açık.</p>
+
+  <h3>4. Replika durdurulup başlatıldığında aradaki değişiklikleri yakalıyor</h3>
+<pre><span class="komut">&gt; docker compose stop mysql-replica</span>
+ Container yemekhane-mysql-replica-1 Stopping
+ Container yemekhane-mysql-replica-1 Stopped
+
+<span class="komut">&gt; docker compose ps -a mysql-replica</span>
+NAME                        IMAGE       COMMAND                  SERVICE         CREATED              STATUS                              PORTS
+yemekhane-mysql-replica-1   mysql:8.4   "docker-entrypoint.s…"   mysql-replica   About a minute ago   Exited (0) Less than a second ago
+
+<span class="komut">&gt; docker compose exec -T mysql-primary mysql -t --default-character-set=utf8mb4 -uyemekhane_app -pUyg_2026 yemekhane -e 'CALL sp_bakiye_yukle(7, 200)'</span>
++------------+--------+
+| hareket_id | bakiye |
++------------+--------+
+|        457 | 755.00 |
++------------+--------+
+
+<span class="komut">&gt; docker compose start mysql-replica</span>
+ Container yemekhane-mysql-replica-1 Starting
+ Container yemekhane-mysql-replica-1 Started
+
+<span class="komut">&gt; docker compose ps -a mysql-replica</span>
+NAME                        IMAGE       COMMAND                  SERVICE         CREATED              STATUS                   PORTS
+yemekhane-mysql-replica-1   mysql:8.4   "docker-entrypoint.s…"   mysql-replica   About a minute ago   Up 6 seconds (healthy)   0.0.0.0:3308->3306/tcp, [::]:3308->3306/tcp
+
+<span class="komut">&gt; docker compose exec -T mysql-replica mysql -t --default-character-set=utf8mb4 -uyemekhane_app -pUyg_2026 yemekhane -e "SELECT k.id, k.ad, k.bakiye, (SELECT SUM(tutar) FROM bakiye_hareketleri WHERE kullanici_id = k.id) AS hareket_toplami FROM kullanicilar k WHERE k.id = 7"</span>
++------+--------+--------+-----------------+
+| id   | ad     | bakiye | hareket_toplami |
++------+--------+--------+-----------------+
+|    7 | Mehmet | 755.00 |          755.00 |
++------+--------+--------+-----------------+
+
+<span class="komut">&gt; docker compose exec -T mysql-replica mysql -t --default-character-set=utf8mb4 -uyemekhane_app -pUyg_2026 yemekhane -e "SELECT id, tur, tutar, aciklama, olusturma FROM bakiye_hareketleri WHERE kullanici_id = 7 ORDER BY id DESC LIMIT 3"</span>
++-----+---------+--------+-----------------+---------------------+
+| id  | tur     | tutar  | aciklama        | olusturma           |
++-----+---------+--------+-----------------+---------------------+
+| 457 | yukleme | 200.00 | Bakiye yükleme  | 2026-11-12 03:10:32 |
+| 456 | yukleme | 100.00 | Bakiye yükleme  | 2026-11-12 03:10:15 |
+| 455 | yukleme | 100.00 | Bakiye yükleme  | 2026-11-12 03:09:59 |
++-----+---------+--------+-----------------+---------------------+
+
+<span class="komut">&gt; docker compose exec -T mysql-replica mysql -uroot -pyemekhane_kok -e 'SHOW REPLICA STATUS\G' | grep -E 'Replica_IO_Running|Replica_SQL_Running:|Seconds_Behind_Source|Retrieved_Gtid_Set|Executed_Gtid_Set'</span>
+           Replica_IO_Running: Yes
+          Replica_SQL_Running: Yes
+        Seconds_Behind_Source: 0
+           Retrieved_Gtid_Set: 4e2c3a29-de2d-11f1-9268-8a69a0d3c6d6:43-45
+            Executed_Gtid_Set: 4e2c3a29-de2d-11f1-9268-8a69a0d3c6d6:1-45</pre>
+  <p class="sonuc">Replika kapalıyken kaynakta yapılan 200 TL'lik yükleme (hareket 457), replika yeniden başlatıldığında yakalandı: bakiye 755,00.
+     GTID otomatik konumlandırma sayesinde replika hangi işlemleri uyguladığını bildiği için kaldığı yerden devam etti
+     (<code>Executed_Gtid_Set ...:1-45</code>); elle konum vermeye gerek kalmadı.</p>
+</section>
+
+<!-- ============================ VARSAYIMLAR ============================ -->
+<section class="bolum">
+  <h2>Varsayımlar</h2>
+  <p>Ödev metninin net olmadığı noktalarda aşağıdaki kararlar alındı. Mümkün olan her yerde kararı şemadaki stored procedure'e bıraktım
+     ("iş kuralı = procedure").</p>
+  <table>
+    <tr><th>Konu</th><th>Karar</th><th>Gerekçe</th></tr>
+    <tr><td>Yöneticinin ödeyeceği fiyat</td><td>Personel fiyatı</td>
+        <td><code>sp_rezervasyon_yap</code>: <code>IF(rol = 'ogrenci', ogrenci_fiyati, personel_fiyati)</code>. Arayüz aynı kuralı gösterir.</td></tr>
+    <tr><td>Menü önbelleğinin süresi</td><td>Anahtardaki tarihin gün sonu (Europe/Istanbul 23:59:59), <code>EXPIREAT</code></td>
+        <td>"O günün sonuna kadar" şartı. Tarihi geçmiş menüler önbelleğe alınmaz.</td></tr>
+    <tr><td>Migration dosyasının yeri</td><td><code>db/init/04_degisiklik.sql</code>, tekrar çalıştırılabilir (idempotent)</td>
+        <td>Temiz kurulumda da çalışır; çalışan sistemde aynı dosya yalnızca kaynağa uygulanır, replikaya replikasyonla geçer.</td></tr>
+    <tr><td>Yarım porsiyon iptalinde iade</td><td>Ödenen tutar (%60) iade edilir</td>
+        <td><code>rezervasyonlar.ucret</code> ödenen tutarı tutar ve <code>sp_rezervasyon_iptal</code> bu tutarı iade eder.</td></tr>
+    <tr><td>Yarım porsiyon ve kapasite</td><td>Yarım porsiyon da bir kişilik yer kaplar</td>
+        <td>Kapasite yemekhanedeki kişi sayısını sınırlar.</td></tr>
+    <tr><td>Yarım porsiyon yuvarlama</td><td><code>ROUND(fiyat * 0.60, 2)</code></td><td>Para alanları DECIMAL, kuruş hassasiyeti.</td></tr>
+    <tr><td>Turnike geçişi</td><td>Yönetici panelinde küçük bir bölüm (<code>sp_turnike_gecis</code>)</td>
+        <td>Rezervasyonun "kullanıldı" durumuna geçmesi ve değerlendirme ekranının denenebilmesi için. Ayrı ekran eklenmedi.</td></tr>
+  </table>
+</section>
+
+</body>
+</html>

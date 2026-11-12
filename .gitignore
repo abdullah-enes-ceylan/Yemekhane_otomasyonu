@@ -11,3 +11,8 @@ obj/
 vendor/
 __pycache__/
 target/
+
+# Yerel çalışma notları ve ödev metni (depoya girmez)
+CLAUDE.md
+/*.pdf
+/ODEV.md

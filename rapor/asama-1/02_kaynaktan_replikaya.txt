@@ -1,0 +1,37 @@
+# 2) Kaynakta yapılan bakiye yüklemesi replikada görünüyor (2026-11-12 03:10:14)
+
+## Önce: replikadaki bakiye
+> docker compose exec -T mysql-replica mysql -t --default-character-set=utf8mb4 -uyemekhane_app -pUyg_2026 yemekhane -e "SELECT k.id, k.ad, k.bakiye, (SELECT SUM(tutar) FROM bakiye_hareketleri WHERE kullanici_id = k.id) AS hareket_toplami FROM kullanicilar k WHERE k.id = 7"
+mysql: [Warning] Using a password on the command line interface can be insecure.
++------+--------+--------+-----------------+
+| id   | ad     | bakiye | hareket_toplami |
++------+--------+--------+-----------------+
+|    7 | Mehmet | 455.00 |          455.00 |
++------+--------+--------+-----------------+
+
+## Kaynakta (primary) 100 TL yükleme
+> docker compose exec -T mysql-primary mysql -t --default-character-set=utf8mb4 -uyemekhane_app -pUyg_2026 yemekhane -e 'CALL sp_bakiye_yukle(7, 100)'
+mysql: [Warning] Using a password on the command line interface can be insecure.
++------------+--------+
+| hareket_id | bakiye |
++------------+--------+
+|        456 | 555.00 |
++------------+--------+
+
+## Sonra: replikadaki bakiye ve son hareket
+> docker compose exec -T mysql-replica mysql -t --default-character-set=utf8mb4 -uyemekhane_app -pUyg_2026 yemekhane -e "SELECT k.id, k.ad, k.bakiye, (SELECT SUM(tutar) FROM bakiye_hareketleri WHERE kullanici_id = k.id) AS hareket_toplami FROM kullanicilar k WHERE k.id = 7"
+mysql: [Warning] Using a password on the command line interface can be insecure.
++------+--------+--------+-----------------+
+| id   | ad     | bakiye | hareket_toplami |
++------+--------+--------+-----------------+
+|    7 | Mehmet | 555.00 |          555.00 |
++------+--------+--------+-----------------+
+
+> docker compose exec -T mysql-replica mysql -t --default-character-set=utf8mb4 -uyemekhane_app -pUyg_2026 yemekhane -e "SELECT id, kullanici_id, tur, tutar, aciklama, olusturma FROM bakiye_hareketleri WHERE kullanici_id = 7 ORDER BY id DESC LIMIT 1"
+mysql: [Warning] Using a password on the command line interface can be insecure.
++-----+--------------+---------+--------+-----------------+---------------------+
+| id  | kullanici_id | tur     | tutar  | aciklama        | olusturma           |
++-----+--------------+---------+--------+-----------------+---------------------+
+| 456 |            7 | yukleme | 100.00 | Bakiye yükleme  | 2026-11-12 03:10:15 |
++-----+--------------+---------+--------+-----------------+---------------------+
+

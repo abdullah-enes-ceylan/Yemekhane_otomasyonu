@@ -1,0 +1,19 @@
+# 3) Replikaya yazma denemesi read-only hatasıyla reddediliyor (2026-11-12 03:10:28)
+
+> docker compose exec -T mysql-replica mysql -t --default-character-set=utf8mb4 -uyemekhane_app -pUyg_2026 yemekhane -e 'CALL sp_bakiye_yukle(7, 50)'
+mysql: [Warning] Using a password on the command line interface can be insecure.
+ERROR 1290 (HY000) at line 1: The MySQL server is running with the --super-read-only option so it cannot execute this statement
+
+> docker compose exec -T mysql-replica mysql -t --default-character-set=utf8mb4 -uyemekhane_app -pUyg_2026 yemekhane -e "UPDATE kullanicilar SET bakiye = 9999 WHERE id = 7"
+mysql: [Warning] Using a password on the command line interface can be insecure.
+ERROR 1290 (HY000) at line 1: The MySQL server is running with the --read-only option so it cannot execute this statement
+
+## Replikadaki bakiye değişmedi
+> docker compose exec -T mysql-replica mysql -t --default-character-set=utf8mb4 -uyemekhane_app -pUyg_2026 yemekhane -e "SELECT k.id, k.ad, k.bakiye, (SELECT SUM(tutar) FROM bakiye_hareketleri WHERE kullanici_id = k.id) AS hareket_toplami FROM kullanicilar k WHERE k.id = 7"
+mysql: [Warning] Using a password on the command line interface can be insecure.
++------+--------+--------+-----------------+
+| id   | ad     | bakiye | hareket_toplami |
++------+--------+--------+-----------------+
+|    7 | Mehmet | 555.00 |          555.00 |
++------+--------+--------+-----------------+
+

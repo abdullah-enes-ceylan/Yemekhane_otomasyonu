@@ -1,0 +1,64 @@
+# 4) Replika durdurulup başlatıldığında aradaki değişiklikleri yakalıyor (2026-11-12 03:10:29)
+
+## Replikayı durdur
+> docker compose stop mysql-replica
+ Container yemekhane-mysql-replica-1 Stopping 
+ Container yemekhane-mysql-replica-1 Stopped 
+
+> docker compose ps -a mysql-replica
+NAME                        IMAGE       COMMAND                  SERVICE         CREATED              STATUS                              PORTS
+yemekhane-mysql-replica-1   mysql:8.4   "docker-entrypoint.s…"   mysql-replica   About a minute ago   Exited (0) Less than a second ago   
+
+## Replika kapalıyken kaynakta 200 TL yükleme
+> docker compose exec -T mysql-primary mysql -t --default-character-set=utf8mb4 -uyemekhane_app -pUyg_2026 yemekhane -e 'CALL sp_bakiye_yukle(7, 200)'
+mysql: [Warning] Using a password on the command line interface can be insecure.
++------------+--------+
+| hareket_id | bakiye |
++------------+--------+
+|        457 | 755.00 |
++------------+--------+
+
+> docker compose exec -T mysql-primary mysql -t --default-character-set=utf8mb4 -uyemekhane_app -pUyg_2026 yemekhane -e "SELECT k.id, k.ad, k.bakiye, (SELECT SUM(tutar) FROM bakiye_hareketleri WHERE kullanici_id = k.id) AS hareket_toplami FROM kullanicilar k WHERE k.id = 7"
+mysql: [Warning] Using a password on the command line interface can be insecure.
++------+--------+--------+-----------------+
+| id   | ad     | bakiye | hareket_toplami |
++------+--------+--------+-----------------+
+|    7 | Mehmet | 755.00 |          755.00 |
++------+--------+--------+-----------------+
+
+## Replikayı başlat
+> docker compose start mysql-replica
+ Container yemekhane-mysql-replica-1 Starting 
+ Container yemekhane-mysql-replica-1 Started 
+
+> docker compose ps -a mysql-replica
+NAME                        IMAGE       COMMAND                  SERVICE         CREATED              STATUS                   PORTS
+yemekhane-mysql-replica-1   mysql:8.4   "docker-entrypoint.s…"   mysql-replica   About a minute ago   Up 6 seconds (healthy)   0.0.0.0:3308->3306/tcp, [::]:3308->3306/tcp
+
+## Replikadaki bakiye: aradaki yükleme yakalandı
+> docker compose exec -T mysql-replica mysql -t --default-character-set=utf8mb4 -uyemekhane_app -pUyg_2026 yemekhane -e "SELECT k.id, k.ad, k.bakiye, (SELECT SUM(tutar) FROM bakiye_hareketleri WHERE kullanici_id = k.id) AS hareket_toplami FROM kullanicilar k WHERE k.id = 7"
+mysql: [Warning] Using a password on the command line interface can be insecure.
++------+--------+--------+-----------------+
+| id   | ad     | bakiye | hareket_toplami |
++------+--------+--------+-----------------+
+|    7 | Mehmet | 755.00 |          755.00 |
++------+--------+--------+-----------------+
+
+> docker compose exec -T mysql-replica mysql -t --default-character-set=utf8mb4 -uyemekhane_app -pUyg_2026 yemekhane -e "SELECT id, tur, tutar, aciklama, olusturma FROM bakiye_hareketleri WHERE kullanici_id = 7 ORDER BY id DESC LIMIT 3"
+mysql: [Warning] Using a password on the command line interface can be insecure.
++-----+---------+--------+-----------------+---------------------+
+| id  | tur     | tutar  | aciklama        | olusturma           |
++-----+---------+--------+-----------------+---------------------+
+| 457 | yukleme | 200.00 | Bakiye yükleme  | 2026-11-12 03:10:32 |
+| 456 | yukleme | 100.00 | Bakiye yükleme  | 2026-11-12 03:10:15 |
+| 455 | yukleme | 100.00 | Bakiye yükleme  | 2026-11-12 03:09:59 |
++-----+---------+--------+-----------------+---------------------+
+
+> docker compose exec -T mysql-replica mysql -uroot -pyemekhane_kok -e 'SHOW REPLICA STATUS\G' | grep -E 'Replica_IO_Running|Replica_SQL_Running:|Seconds_Behind_Source|Retrieved_Gtid_Set|Executed_Gtid_Set'
+mysql: [Warning] Using a password on the command line interface can be insecure.
+           Replica_IO_Running: Yes
+          Replica_SQL_Running: Yes
+        Seconds_Behind_Source: 0
+           Retrieved_Gtid_Set: 4e2c3a29-de2d-11f1-9268-8a69a0d3c6d6:43-45
+            Executed_Gtid_Set: 4e2c3a29-de2d-11f1-9268-8a69a0d3c6d6:1-45
+

@@ -1,0 +1,32 @@
+# 1) Servis durumu (2026-11-12 03:09:46)
+
+> docker compose ps -a
+NAME                        IMAGE                COMMAND                  SERVICE         CREATED          STATUS                      PORTS
+yemekhane-frontend-1        yemekhane-frontend   "httpd-foreground -D…"   frontend        28 seconds ago   Up 28 seconds (healthy)     0.0.0.0:8080->80/tcp, [::]:8080->80/tcp
+yemekhane-mysql-primary-1   mysql:8.4            "docker-entrypoint.s…"   mysql-primary   28 seconds ago   Up 28 seconds (healthy)     0.0.0.0:3307->3306/tcp, [::]:3307->3306/tcp
+yemekhane-mysql-replica-1   mysql:8.4            "docker-entrypoint.s…"   mysql-replica   28 seconds ago   Up 28 seconds (healthy)     0.0.0.0:3308->3306/tcp, [::]:3308->3306/tcp
+yemekhane-redis-1           redis:7.4-alpine     "docker-entrypoint.s…"   redis           28 seconds ago   Up 28 seconds (healthy)     0.0.0.0:6379->6379/tcp, [::]:6379->6379/tcp
+yemekhane-replica-setup-1   mysql:8.4            "bash /replica-setup…"   replica-setup   28 seconds ago   Exited (0) 17 seconds ago   
+
+> docker compose exec -T mysql-replica mysql -uroot -pyemekhane_kok -e 'SHOW REPLICA STATUS\G' | grep -E 'Source_Host|Replica_IO_Running|Replica_SQL_Running|Seconds_Behind_Source|Auto_Position|Last_.*Error:'
+mysql: [Warning] Using a password on the command line interface can be insecure.
+                  Source_Host: mysql-primary
+           Replica_IO_Running: Yes
+          Replica_SQL_Running: Yes
+                   Last_Error: 
+        Seconds_Behind_Source: 0
+                Last_IO_Error: 
+               Last_SQL_Error: 
+    Replica_SQL_Running_State: Replica has read all relay log; waiting for more updates
+                Auto_Position: 1
+
+> docker compose exec -T mysql-replica mysql -uroot -pyemekhane_kok -e 'SELECT @@read_only, @@super_read_only'
+mysql: [Warning] Using a password on the command line interface can be insecure.
+@@read_only	@@super_read_only
+1	1
+
+> docker compose exec -T mysql-replica mysql -uyemekhane_app -pUyg_2026 yemekhane -e 'SELECT (SELECT COUNT(*) FROM kullanicilar) kullanici, (SELECT COUNT(*) FROM yemekler) yemek, (SELECT COUNT(*) FROM menuler) menu, (SELECT COUNT(*) FROM rezervasyonlar) rezervasyon'
+mysql: [Warning] Using a password on the command line interface can be insecure.
+kullanici	yemek	menu	rezervasyon
+30	52	84	367
+

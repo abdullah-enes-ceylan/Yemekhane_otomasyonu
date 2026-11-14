@@ -1,0 +1,92 @@
+/* =====================================================================
+   Yemekhane Otomasyonu · style.css
+   temel.css'in değişkenlerini kullanır. Mobil önce: 400 px'te rahat
+   kullanılır, genişleyen ekranda içerik ortalanır.
+   ===================================================================== */
+
+/* ---------- Üst çubuk ---------- */
+.ust-cubuk {
+  background: var(--ana);
+  color: #fff;
+}
+.ust-cubuk .kapsayici {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 56px;
+  padding-block: 0.5rem;
+}
+.marka {
+  font-weight: 700;
+  font-size: var(--boyut-buyuk);
+  color: #fff;
+  text-decoration: none;
+}
+.marka:hover { color: #fff; }
+.kullanici-alani {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: var(--boyut-kucuk);
+}
+.kullanici-alani .rol {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+/* Açık zemin üzerinde ikincil düğme (ör. çıkış) */
+.dugme-cizgili {
+  min-height: 40px;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: var(--kose);
+  background: transparent;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+.dugme-cizgili:hover { background: rgba(255, 255, 255, 0.12); }
+
+/* ---------- Sayfa içeriği ---------- */
+main.kapsayici { padding-block: 1.25rem 2rem; }
+
+.kart {
+  background: var(--yuzey);
+  border: 1px solid var(--cizgi);
+  border-radius: var(--kose);
+  padding: 1.25rem var(--bosluk);
+  margin-bottom: 1rem;
+}
+
+.soluk { color: var(--metin-soluk); font-size: var(--boyut-kucuk); }
+
+.bildirim { margin-bottom: 1rem; }
+.bildirim[hidden] { display: none; }
+
+/* ---------- Form ---------- */
+.form-alani { margin-bottom: 1rem; }
+.dugme-tam { width: 100%; }
+.dugme[aria-busy="true"] { opacity: 0.7; cursor: progress; }
+
+/* ---------- Giriş ekranı ---------- */
+.giris-sayfasi {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  padding-block: 2rem;
+}
+.giris-kutusu {
+  width: 100%;
+  max-width: 400px;
+  margin-inline: auto;
+}
+.giris-kutusu h1 { margin-bottom: 0.25rem; }
+.giris-kutusu .alt-baslik { color: var(--metin-soluk); margin-bottom: 1.5rem; }
+
+@media (min-width: 640px) {
+  .kart { padding: 1.5rem; }
+}

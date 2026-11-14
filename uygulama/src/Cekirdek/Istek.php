@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Yemekhane\Cekirdek;
 
+use LogicException;
+use Yemekhane\Guvenlik\OturumKullanicisi;
 use Yemekhane\Hata\IsKuraliHatasi;
 
 /**
@@ -14,6 +16,8 @@ final class Istek
 {
     /** @var array<string, string> */
     private array $yolParametreleri = [];
+
+    private ?OturumKullanicisi $kullanici = null;
 
     /**
      * @param array<string, mixed>  $sorgu
@@ -69,6 +73,20 @@ final class Istek
         $kopya->yolParametreleri = $parametreler;
 
         return $kopya;
+    }
+
+    public function kullaniciyla(OturumKullanicisi $kullanici): self
+    {
+        $kopya = clone $this;
+        $kopya->kullanici = $kullanici;
+
+        return $kopya;
+    }
+
+    /** Oturum gerektiren rotalarda OturumFiltresi kullanıcıyı önceden yerleştirmiştir. */
+    public function kullanici(): OturumKullanicisi
+    {
+        return $this->kullanici ?? throw new LogicException('Bu rota oturum filtresinden geçmedi.');
     }
 
     public function yolParametresi(string $ad): ?string

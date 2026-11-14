@@ -12,6 +12,9 @@ final class Yanit
     /** @var array<string, string> */
     private array $basliklar = [];
 
+    /** @var list<array{ad: string, deger: string, bitis: int}> */
+    private array $cerezler = [];
+
     /** @param array<mixed>|null $veri */
     private function __construct(
         public readonly int $durumKodu,
@@ -37,6 +40,21 @@ final class Yanit
         return $this;
     }
 
+    /** Tarayıcı kapanınca silinen oturum cookie'si; asıl süre sunucu tarafında (Redis TTL). */
+    public function cerezYaz(string $ad, string $deger): self
+    {
+        $this->cerezler[] = ['ad' => $ad, 'deger' => $deger, 'bitis' => 0];
+
+        return $this;
+    }
+
+    public function cerezSil(string $ad): self
+    {
+        $this->cerezler[] = ['ad' => $ad, 'deger' => '', 'bitis' => 1];
+
+        return $this;
+    }
+
     public function gonder(): void
     {
         http_response_code($this->durumKodu);
@@ -45,6 +63,16 @@ final class Yanit
         header('Cache-Control: no-store');
         foreach ($this->basliklar as $ad => $deger) {
             header($ad . ': ' . $deger);
+        }
+        foreach ($this->cerezler as $cerez) {
+            // HttpOnly: JavaScript okuyamaz (XSS). SameSite=Strict: başka siteden gelen istekte gönderilmez (CSRF).
+            // Secure yok: sistem http://localhost üzerinde çalışıyor; üretimde HTTPS ile birlikte açılmalı.
+            setcookie($cerez['ad'], $cerez['deger'], [
+                'expires' => $cerez['bitis'],
+                'path' => '/',
+                'httponly' => true,
+                'samesite' => 'Strict',
+            ]);
         }
 
         if ($this->veri !== null) {

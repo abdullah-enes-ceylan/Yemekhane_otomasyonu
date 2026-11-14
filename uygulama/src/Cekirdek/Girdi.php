@@ -1,0 +1,45 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Yemekhane\Cekirdek;
+
+use DateTimeImmutable;
+use Yemekhane\Hata\IsKuraliHatasi;
+
+/**
+ * İstekten gelen ham değerleri doğrulayıp türüne çevirir. Geçersizse 400 ve
+ * hangi alanın hatalı olduğunu söyleyen Türkçe mesaj.
+ */
+final class Girdi
+{
+    public static function pozitifTamSayi(mixed $deger, string $alanAdi): int
+    {
+        if (is_int($deger) && $deger > 0) {
+            return $deger;
+        }
+        if (is_string($deger) && preg_match('/^[1-9][0-9]{0,9}$/', $deger) === 1) {
+            return (int) $deger;
+        }
+
+        throw new IsKuraliHatasi("{$alanAdi} geçerli bir sayı olmalıdır.", 400);
+    }
+
+    /** "2026-11-15" biçiminde, takvimde gerçekten var olan bir tarih */
+    public static function tarih(mixed $deger, string $alanAdi): DateTimeImmutable
+    {
+        if (is_string($deger)) {
+            $tarih = DateTimeImmutable::createFromFormat('!Y-m-d', $deger);
+            if ($tarih !== false && $tarih->format('Y-m-d') === $deger) {
+                return $tarih;
+            }
+        }
+
+        throw new IsKuraliHatasi("{$alanAdi} YYYY-AA-GG biçiminde geçerli bir tarih olmalıdır.", 400);
+    }
+
+    public static function bugun(): DateTimeImmutable
+    {
+        return new DateTimeImmutable('today');
+    }
+}

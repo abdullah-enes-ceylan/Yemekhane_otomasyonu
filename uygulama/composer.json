@@ -1,0 +1,23 @@
+{
+    "name": "yemekhane/uygulama",
+    "description": "Yemekhane Otomasyonu - Web API (PHP 8.3, PDO, Redis)",
+    "type": "project",
+    "license": "proprietary",
+    "require": {
+        "php": ">=8.3",
+        "ext-json": "*",
+        "ext-pdo": "*",
+        "ext-pdo_mysql": "*",
+        "ext-redis": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "Yemekhane\\": "src/"
+        }
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "classmap-authoritative": true,
+        "sort-packages": true
+    }
+}

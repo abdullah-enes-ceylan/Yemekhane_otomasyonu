@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Haftalık menü · Yemekhane</title>
+  <link rel="stylesheet" href="/css/temel.css">
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="/js/api.js" defer></script>
+  <script src="/js/bicim.js" defer></script>
+  <script src="/js/oturum.js" defer></script>
+  <script src="/js/haftalik.js" defer></script>
+</head>
+<body>
+  <header class="ust-cubuk">
+    <div class="kapsayici">
+      <a class="marka" href="/menu.html">Yemekhane</a>
+      <div class="kullanici-alani">
+        <span id="kullanici-adi"></span>
+        <span id="kullanici-rolu" class="rol"></span>
+        <button id="cikis-dugmesi" type="button" class="dugme-cizgili">Çıkış</button>
+      </div>
+    </div>
+  </header>
+  <nav class="gezinme" aria-label="Sayfalar">
+    <div class="kapsayici"><ul id="gezinme"></ul></div>
+  </nav>
+
+  <main class="kapsayici">
+    <h1>Haftalık menü ve rezervasyon</h1>
+
+    <form id="hafta-secimi" class="secim-satiri">
+      <div class="form-alani">
+        <label for="yemekhane">Yemekhane</label>
+        <select id="yemekhane" name="yemekhane"></select>
+      </div>
+    </form>
+
+    <div class="hafta-gezinme">
+      <button id="onceki-hafta" type="button" class="dugme">‹ Önceki</button>
+      <span id="hafta-araligi" class="hafta-araligi"></span>
+      <button id="sonraki-hafta" type="button" class="dugme">Sonraki ›</button>
+    </div>
+
+    <p id="sayfa-bildirimi" class="bildirim" hidden></p>
+    <section id="hafta-alani" class="hafta-izgarasi" aria-live="polite"></section>
+  </main>
+</body>
+</html>

@@ -29,6 +29,12 @@
   .sonuc { border-left: 3px solid var(--vurgu); padding: 1mm 0 1mm 3mm; margin: 2mm 0 4mm; }
   .not { color: var(--soluk); font-size: 9pt; }
   .durum td:last-child { white-space: nowrap; }
+  .yol-adimlari { margin: 0 0 3mm; padding-left: 5mm; }
+  .yol-adimlari li { margin-bottom: 1mm; }
+  .ekranlar { display: flex; gap: 5mm; justify-content: space-between; margin: 3mm 0; break-inside: avoid; }
+  .ekranlar figure { margin: 0; width: 56mm; }
+  .ekranlar img { width: 100%; border: 1px solid var(--cizgi); border-radius: 2mm; }
+  .ekranlar figcaption { font-size: 8.5pt; color: var(--soluk); margin-top: 1.5mm; text-align: center; }
 </style>
 </head>
 <body>
@@ -49,7 +55,7 @@
   <table class="durum">
     <tr><th>Bölüm</th><th>Durum</th></tr>
     <tr><td>Aşama 1 · Altyapı – dört doğrulama, komutlar ve çıktılar</td><td>Tamamlandı (12.11.2026)</td></tr>
-    <tr><td>Aşama 2 · Uygulama</td><td>Hazırlanıyor</td></tr>
+    <tr><td>Aşama 2 · Uygulama – servis, katmanlar, istek yolu, ekran 1–3</td><td>Devam ediyor (15.11.2026)</td></tr>
     <tr><td>Aşama 3 · Redis</td><td>Hazırlanıyor</td></tr>
     <tr><td>Aşama 4 · Değişiklik talebi</td><td>Hazırlanıyor</td></tr>
     <tr><td>Varsayımlar</td><td>Güncel</td></tr>
@@ -216,6 +222,110 @@ yemekhane-mysql-replica-1   mysql:8.4   "docker-entrypoint.s…"   mysql-replica
      (<code>Executed_Gtid_Set ...:1-45</code>); elle konum vermeye gerek kalmadı.</p>
 </section>
 
+<!-- ============================ AŞAMA 2 ============================ -->
+<section class="bolum">
+  <h2>Aşama 2 · Uygulama (Web API)</h2>
+  <p>Uygulama PHP 8.3 ile, framework kullanılmadan yazıldı; veri erişimi PDO, oturum ve önbellek Redis (phpredis) üzerinden.
+     Kaynak kod <code>uygulama/</code> klasöründe; compose dosyasında <code>uygulama</code> servisi olarak açıldı. İmaj iki aşamalı
+     (multi-stage) derlenir, container root olmayan <code>www-data</code> kullanıcısıyla çalışır ve kendi sağlık kontrolü vardır.</p>
+
+  <h3>Uygulama servisi çalışıyor</h3>
+<pre><span class="komut">&gt; docker compose ps -a --format 'table {{.Service}}\t{{.Status}}'</span>
+SERVICE         STATUS
+frontend        Up 32 minutes (healthy)
+mysql-primary   Up 32 minutes (healthy)
+mysql-replica   Up 32 minutes (healthy)
+redis           Up 32 minutes (healthy)
+replica-setup   Exited (0) 6 minutes ago
+uygulama        Up 6 minutes (healthy)
+
+<span class="komut">&gt; curl -s http://localhost:8080/api/saglik</span>
+{"durum":"calisiyor","primary":{"sunucu":"21993b89eb4a","salt_okunur":false},"replica":{"sunucu":"63b3110730f7","salt_okunur":true},"redis":"calisiyor"}
+
+<span class="komut">&gt; docker compose exec -T uygulama id</span>
+uid=33(www-data) gid=33(www-data) groups=33(www-data)</pre>
+  <p class="sonuc">Altı servis de healthy. <code>/api/saglik</code> isteği Apache üzerinden uygulamaya ulaşıyor; uygulama iki ayrı veritabanı
+     bağlantısının iki farklı sunucuya gittiğini (<code>@@hostname</code>) ve yalnızca replikanın salt okunur olduğunu gösteriyor.</p>
+
+  <h3>Katmanlar</h3>
+  <table>
+    <tr><th>Katman</th><th>Klasör</th><th>Görevi</th></tr>
+    <tr><td>Giriş noktası</td><td><code>public/index.php</code></td><td>Apache'nin ilettiği her <code>/api/</code> isteği buraya gelir; rota tablosu ve oturum filtresi burada.</td></tr>
+    <tr><td>Controller</td><td><code>src/Controller/</code></td><td>İstekten girdiyi okur ve doğrular, servisi çağırır, JSON yanıt döner. <b>SQL içermez.</b></td></tr>
+    <tr><td>Servis</td><td><code>src/Servis/</code></td><td>İş akışı: rolüne göre fiyat, boş yer, rezervasyona açık mı gibi alanları hesaplar.</td></tr>
+    <tr><td>Veri katmanı</td><td><code>src/Depo/</code></td><td>SQL sorguları ve stored procedure çağrıları <b>yalnızca burada</b>; hepsi hazırlanmış ifade (prepared statement).</td></tr>
+    <tr><td>Arayüz</td><td><code>frontend/</code></td><td>HTML5 + CSS3 + JavaScript <code>fetch</code>. İş kuralı içermez; API'nin döndürdüğü alanları çizer.</td></tr>
+  </table>
+
+  <h3>Bir isteğin uygulama içindeki yolu: giriş</h3>
+  <ol class="yol-adimlari">
+    <li><b>Tarayıcı:</b> <code>frontend/js/giris.js</code> formu <code>POST /api/auth/giris</code> olarak gönderir. Apache <code>/api/</code> ile başlayan isteği <code>http://uygulama:8000</code>'e iletir.</li>
+    <li><b>Route:</b> <code>public/index.php:51</code> isteği <code>AuthController::giris</code>'e bağlar. Bu yol oturum filtresinde (<code>index.php:58</code>) oturum gerektirmeyen yollar arasındadır.</li>
+    <li><b>Controller:</b> <code>src/Controller/AuthController.php:20</code> e-posta ve şifrenin geldiğini kontrol eder, servisi çağırır.</li>
+    <li><b>Servis:</b> <code>src/Servis/AuthServisi.php:27</code> kullanıcıyı ister, şifreyi bcrypt ile doğrular (<code>password_verify</code>, satır 30), Redis'te oturum açar.</li>
+    <li><b>Veri katmanı:</b> <code>src/Depo/KullaniciDeposu.php:21</code> sorguyu <b>replikaya</b> gönderir (okuma).</li>
+    <li><b>Yanıt:</b> Controller kullanıcı bilgisini JSON olarak döner ve oturum token'ını <code>HttpOnly; SameSite=Strict</code> cookie ile verir.</li>
+  </ol>
+<pre><span class="komut">// public/index.php · rota</span>
+$yonlendirici-&gt;post('/api/auth/giris', $authController-&gt;giris(...));
+
+<span class="komut">// src/Controller/AuthController.php · girdi kontrolü, servis çağrısı, yanıt</span>
+public function giris(Istek $istek): Yanit
+{
+    $eposta = $istek-&gt;govde('eposta');
+    $sifre = $istek-&gt;govde('sifre');
+    if (!is_string($eposta) || trim($eposta) === '' || !is_string($sifre) || $sifre === '') {
+        throw new IsKuraliHatasi('E-posta ve şifre zorunludur.', 400);
+    }
+    …
+    $sonuc = $this-&gt;authServisi-&gt;girisYap(trim($eposta), $sifre);
+
+    return Yanit::json(['kullanici' =&gt; $sonuc['kullanici']-&gt;diziye()])
+        -&gt;cerezYaz(OturumServisi::CEREZ_ADI, $sonuc['token']);
+}
+
+<span class="komut">// src/Servis/AuthServisi.php · bcrypt doğrulaması</span>
+$kayit = $this-&gt;kullaniciDeposu-&gt;epostaIleBul($eposta);
+$sifreDogru = password_verify($sifre, $kayit['sifre_hash'] ?? self::SAHTE_OZET);
+if ($kayit === null || !$sifreDogru) {
+    throw new IsKuraliHatasi('E-posta veya şifre hatalı.', 401);
+}
+
+<span class="komut">// src/Depo/KullaniciDeposu.php · veri katmanı: okuma replikaya gider</span>
+$sorgu = $this-&gt;veritabani-&gt;replicaDb()-&gt;prepare(
+    'SELECT id, ad, soyad, sifre_hash, rol, aktif
+       FROM kullanicilar
+      WHERE eposta = ?',
+);
+$sorgu-&gt;execute([$eposta]);</pre>
+<pre><span class="komut">&gt; curl -s -i -X POST -H 'Content-Type: application/json' -d '{"eposta":"mehmet.yildiz@ogr.kampus.edu.tr","sifre":"Yemek2026!"}' http://localhost:8080/api/auth/giris</span>
+HTTP/1.1 200 OK
+Set-Cookie: yemekhane_oturum=********86f01a30; path=/; HttpOnly; SameSite=Strict
+{"kullanici":{"id":7,"ad":"Mehmet","soyad":"Yıldız","rol":"ogrenci"}}
+
+<span class="komut">&gt; curl -s -X POST -H 'Content-Type: application/json' -d '{"eposta":"mehmet.yildiz@ogr.kampus.edu.tr","sifre":"yanlis"}' http://localhost:8080/api/auth/giris</span>
+<span class="hata">{"mesaj":"E-posta veya şifre hatalı."}</span></pre>
+  <p class="not">Token'ın büyük kısmı rapora konmadan önce yıldızlarla gizlendi.</p>
+
+  <h3>Okuma/yazma ayrımı kodda nerede</h3>
+  <p><code>src/Ayar/Veritabani.php</code> iki ayrı bağlantıyı iki açık isimli metotla verir: <code>primaryDb()</code> (satır 42, yazma,
+     <code>mysql-primary</code>) ve <code>replicaDb()</code> (satır 47, okuma, <code>mysql-replica</code>). Bağlantı, o sunucuya ilk sorgu
+     gönderildiğinde açılır; yalnızca okuyan bir istek kaynağa hiç bağlanmaz. Veri katmanındaki her sorgu hedefini kendi satırında yazar
+     (ör. <code>$this-&gt;veritabani-&gt;replicaDb()-&gt;prepare(...)</code>); örtük bir yönlendirme mekanizması yoktur. Listeleme ve menü
+     okumaları (<code>src/Depo/MenuDeposu.php</code>) replikadan yapılır; para hareketi yapan yazmalar stored procedure ile kaynağa gider.</p>
+
+  <h3>Ekranlar (telefon genişliği, 375 px)</h3>
+  <p>Hazır olan ekranlar: <b>1.</b> giriş/çıkış, <b>2.</b> günün menüsü (yemekhane, öğün, tarih seçimi; yemekler kategori sırasıyla; toplam kalori,
+     vejetaryen ve alerjen bilgisi), <b>3.</b> haftalık menü (rolüne göre fiyat, boş yer, son saati geçen ya da zaten rezervasyonu olan
+     öğünde pasif düğme ve nedeni). Fiyat, boş yer ve düğmenin açık/pasif olması API'de hesaplanır (<code>fiyat</code>, <code>bosYer</code>,
+     <code>rezervasyonaAcik</code>, <code>kapaliNedeni</code> alanları); son saat karşılaştırması veritabanında <code>rezervasyon_son &gt; NOW()</code> ile yapılır.</p>
+  <div class="ekranlar">
+    <figure><img src="../ekran/01_giris_hatali_sifre.png" alt="Hatalı şifrede giriş ekranı"><figcaption>Giriş: hata mesajı API'den gelir</figcaption></figure>
+    <figure><img src="../ekran/02_gunun_menusu.png" alt="Günün menüsü ekranı"><figcaption>Günün menüsü</figcaption></figure>
+    <figure><img src="../ekran/03_haftalik_menu.png" alt="Haftalık menü ekranı"><figcaption>Haftalık menü: pasif düğme ve nedeni</figcaption></figure>
+  </div>
+</section>
+
 <!-- ============================ VARSAYIMLAR ============================ -->
 <section class="bolum">
   <h2>Varsayımlar</h2>
@@ -236,6 +346,18 @@ yemekhane-mysql-replica-1   mysql:8.4   "docker-entrypoint.s…"   mysql-replica
     <tr><td>Yarım porsiyon yuvarlama</td><td><code>ROUND(fiyat * 0.60, 2)</code></td><td>Para alanları DECIMAL, kuruş hassasiyeti.</td></tr>
     <tr><td>Turnike geçişi</td><td>Yönetici panelinde küçük bir bölüm (<code>sp_turnike_gecis</code>)</td>
         <td>Rezervasyonun "kullanıldı" durumuna geçmesi ve değerlendirme ekranının denenebilmesi için. Ayrı ekran eklenmedi.</td></tr>
+    <tr><td>Giriş sorgusu</td><td>Replikadan okunur</td>
+        <td>Okuma kuralına uygun; girişten hemen önce kullanıcıya yazan bir işlem olmadığı için replikasyon gecikmesi etkilemez.</td></tr>
+    <tr><td>Yordam hatalarının HTTP kodu</td><td>422 + <code>{"mesaj": "..."}</code></td>
+        <td>"İstek anlaşıldı ama iş kuralı izin vermiyor." Mesaj metnine göre farklı kod seçmek kırılgan olurdu. Diğer veritabanı hataları kullanıcıya ham gösterilmez.</td></tr>
+    <tr><td>Yönetici yetkisi</td><td>Oturum filtresinde, <code>/api/admin/</code> ile başlayan her yol için</td>
+        <td>Yetki kontrolü tek yerde; yönetici olmayan kullanıcı 403 alır.</td></tr>
+    <tr><td>Oturum cookie'si</td><td><code>HttpOnly; SameSite=Strict; Path=/</code>, <code>Secure</code> yok</td>
+        <td>Sistem http://localhost üzerinde çalışıyor; gerçek bir ortamda HTTPS ile birlikte <code>Secure</code> da açılmalıdır.</td></tr>
+    <tr><td>Hatalı giriş mesajı</td><td>E-posta ya da şifre hatalı olsa da aynı mesaj ve aynı süre</td>
+        <td>Hangi e-postaların kayıtlı olduğu anlaşılamasın diye; kullanıcı yoksa da sahte bir bcrypt özetiyle doğrulama yapılır.</td></tr>
+    <tr><td>Menünün önbelleğe girecek kısmı</td><td>Yalnızca içerik (yemekler, kalori, alerjen, iki fiyat)</td>
+        <td>Boş yer, son saat ve kişiye özel alanlar (rolüne göre fiyat, kendi rezervasyonu) sık değişir; her istekte hesaplanır.</td></tr>
   </table>
 </section>
 

@@ -1,0 +1,11 @@
+# Aşama 2 · giriş isteği ve hata mesajları (2026-11-15 00:47:17)
+
+> curl -s -X POST -H 'Content-Type: application/json' -d '{"eposta":"mehmet.yildiz@ogr.kampus.edu.tr","sifre":"yanlis"}' http://localhost:8080/api/auth/giris
+{"mesaj":"E-posta veya şifre hatalı."}
+> curl -s -i -X POST -H 'Content-Type: application/json' -d '{"eposta":"mehmet.yildiz@ogr.kampus.edu.tr","sifre":"Yemek2026!"}' http://localhost:8080/api/auth/giris | grep -iE '^HTTP|^set-cookie|^\{' | sed -E 's/(yemekhane_oturum=)[0-9a-f]{56}/\1********/'
+HTTP/1.1 200 OK
+Set-Cookie: yemekhane_oturum=********86f01a30; path=/; HttpOnly; SameSite=Strict
+{"kullanici":{"id":7,"ad":"Mehmet","soyad":"Yıldız","rol":"ogrenci"}}
+
+> curl -s http://localhost:8080/api/menu/haftalik?yemekhane_id=1
+{"mesaj":"Oturumunuz bulunamadı ya da süresi doldu. Lütfen giriş yapın."}

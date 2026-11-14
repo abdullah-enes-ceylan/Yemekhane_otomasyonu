@@ -1,0 +1,16 @@
+# Aşama 2 · uygulama servisi ve okuma/yazma ayrımı (2026-11-15 00:47:16)
+
+> docker compose ps -a --format 'table {{.Service}}\t{{.Status}}'
+SERVICE         STATUS
+frontend        Up 32 minutes (healthy)
+mysql-primary   Up 32 minutes (healthy)
+mysql-replica   Up 32 minutes (healthy)
+redis           Up 32 minutes (healthy)
+replica-setup   Exited (0) 6 minutes ago
+uygulama        Up 6 minutes (healthy)
+
+> curl -s http://localhost:8080/api/saglik
+{"durum":"calisiyor","primary":{"sunucu":"21993b89eb4a","salt_okunur":false},"replica":{"sunucu":"63b3110730f7","salt_okunur":true},"redis":"calisiyor"}
+> docker compose exec -T uygulama id
+uid=33(www-data) gid=33(www-data) groups=33(www-data)
+

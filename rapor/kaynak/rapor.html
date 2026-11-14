@@ -41,7 +41,7 @@
   <div class="yol">
     <div class="etiket">Seçilen yol</div>
     <div class="deger">Web API + arayüz</div>
-    <p>Uygulama (Spring Boot 3, Java 21) yalnızca JSON döner. HTML5 + CSS3 arayüz <code>frontend</code> container'ında durur ve veriyi
+    <p>Uygulama (PHP 8.3, framework kullanılmadan; veri erişimi PDO) yalnızca JSON döner. HTML5 + CSS3 arayüz <code>frontend</code> container'ında durur ve veriyi
        JavaScript <code>fetch</code> ile alır; React gibi bir çerçeve kullanılmaz. Apache <code>/api/</code> isteklerini
        <code>uygulama</code> servisine iletir (<code>-D WEBAPI</code>).</p>
   </div>
@@ -65,7 +65,7 @@
   <table>
     <tr><th>Servis</th><th>Görevi</th><th>Erişim</th></tr>
     <tr><td><code>frontend</code></td><td>Apache 2.4: HTML/CSS/JS sunar, <code>/api/</code> isteklerini uygulamaya iletir</td><td>localhost:8080</td></tr>
-    <tr><td><code>uygulama</code></td><td>Spring Boot Web API (Aşama 2'de eklenecek)</td><td>uygulama:8000 (yalnızca iç ağ)</td></tr>
+    <tr><td><code>uygulama</code></td><td>PHP 8.3 Web API, Apache + PDO (Aşama 2'de eklenecek)</td><td>uygulama:8000 (yalnızca iç ağ)</td></tr>
     <tr><td><code>mysql-primary</code></td><td>Yazma; şema ve örnek veri ilk açılışta yüklenir</td><td>mysql-primary:3306 · localhost:3307</td></tr>
     <tr><td><code>mysql-replica</code></td><td>Okuma; salt okunur, aynı zamanda yedek</td><td>mysql-replica:3306 · localhost:3308</td></tr>
     <tr><td><code>replica-setup</code></td><td>Replikayı GTID ile bir kez kurar, salt okunur yapar ve çıkar</td><td>–</td></tr>

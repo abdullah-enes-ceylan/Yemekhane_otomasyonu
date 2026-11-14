@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="/css/temel.css">
   <link rel="stylesheet" href="/css/style.css">
   <script src="/js/api.js" defer></script>
+  <script src="/js/bicim.js" defer></script>
   <script src="/js/oturum.js" defer></script>
   <script src="/js/menu.js" defer></script>
 </head>
@@ -21,14 +22,30 @@
       </div>
     </div>
   </header>
+  <nav class="gezinme" aria-label="Sayfalar">
+    <div class="kapsayici"><ul id="gezinme"></ul></div>
+  </nav>
 
   <main class="kapsayici">
     <h1>Günün menüsü</h1>
+
+    <form id="menu-secimi" class="secim-satiri">
+      <div class="form-alani">
+        <label for="yemekhane">Yemekhane</label>
+        <select id="yemekhane" name="yemekhane"></select>
+      </div>
+      <div class="form-alani">
+        <label for="ogun">Öğün</label>
+        <select id="ogun" name="ogun"></select>
+      </div>
+      <div class="form-alani">
+        <label for="tarih">Tarih</label>
+        <input id="tarih" name="tarih" type="date">
+      </div>
+    </form>
+
     <p id="sayfa-bildirimi" class="bildirim" hidden></p>
-    <section class="kart">
-      <p id="karsilama"></p>
-      <p class="soluk">Menü ekranı hazırlanıyor.</p>
-    </section>
+    <section id="menu-alani" aria-live="polite"></section>
   </main>
 </body>
 </html>

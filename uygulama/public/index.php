@@ -13,6 +13,7 @@ use Yemekhane\Cekirdek\Istek;
 use Yemekhane\Cekirdek\Yonlendirici;
 use Yemekhane\Controller\AuthController;
 use Yemekhane\Controller\MenuController;
+use Yemekhane\Controller\RezervasyonController;
 use Yemekhane\Controller\SaglikController;
 use Yemekhane\Depo\KullaniciDeposu;
 use Yemekhane\Depo\MenuDeposu;
@@ -23,6 +24,7 @@ use Yemekhane\Guvenlik\OturumServisi;
 use Yemekhane\Hata\HataYakalayici;
 use Yemekhane\Servis\AuthServisi;
 use Yemekhane\Servis\MenuServisi;
+use Yemekhane\Servis\RezervasyonServisi;
 use Yemekhane\Servis\SaglikServisi;
 
 require __DIR__ . '/../vendor/autoload.php';
@@ -45,6 +47,7 @@ try {
     $authController = new AuthController(new AuthServisi(new KullaniciDeposu($veritabani), $oturumServisi));
     $rezervasyonDeposu = new RezervasyonDeposu($veritabani);
     $menuController = new MenuController(new MenuServisi(new MenuDeposu($veritabani), $rezervasyonDeposu));
+    $rezervasyonController = new RezervasyonController(new RezervasyonServisi($rezervasyonDeposu));
 
     $yonlendirici = new Yonlendirici();
     $yonlendirici->get('/api/saglik', $saglikController->durum(...));
@@ -54,6 +57,9 @@ try {
     $yonlendirici->get('/api/menu/secenekler', $menuController->secenekler(...));
     $yonlendirici->get('/api/menu/gunluk', $menuController->gunluk(...));
     $yonlendirici->get('/api/menu/haftalik', $menuController->haftalik(...));
+    $yonlendirici->get('/api/rezervasyonlar', $rezervasyonController->listele(...));
+    $yonlendirici->post('/api/rezervasyonlar', $rezervasyonController->yap(...));
+    $yonlendirici->post('/api/rezervasyonlar/{id}/iptal', $rezervasyonController->iptal(...));
 
     $istek = (new OturumFiltresi($oturumServisi))->uygula(Istek::globallerdenOlustur());
     $yanit = $yonlendirici->yonlendir($istek);

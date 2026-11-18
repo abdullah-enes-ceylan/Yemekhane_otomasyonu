@@ -12,9 +12,11 @@ use Yemekhane\Ayar\Veritabani;
 use Yemekhane\Cekirdek\Istek;
 use Yemekhane\Cekirdek\Yonlendirici;
 use Yemekhane\Controller\AuthController;
+use Yemekhane\Controller\BakiyeController;
 use Yemekhane\Controller\MenuController;
 use Yemekhane\Controller\RezervasyonController;
 use Yemekhane\Controller\SaglikController;
+use Yemekhane\Depo\BakiyeDeposu;
 use Yemekhane\Depo\KullaniciDeposu;
 use Yemekhane\Depo\MenuDeposu;
 use Yemekhane\Depo\ReplikasyonDeposu;
@@ -24,6 +26,7 @@ use Yemekhane\Guvenlik\OturumFiltresi;
 use Yemekhane\Guvenlik\OturumServisi;
 use Yemekhane\Hata\HataYakalayici;
 use Yemekhane\Servis\AuthServisi;
+use Yemekhane\Servis\BakiyeServisi;
 use Yemekhane\Servis\MenuServisi;
 use Yemekhane\Servis\RezervasyonServisi;
 use Yemekhane\Servis\SaglikServisi;
@@ -50,6 +53,7 @@ try {
     $menuController = new MenuController(new MenuServisi(new MenuDeposu($veritabani), $rezervasyonDeposu));
     $replikasyonDeposu = new ReplikasyonDeposu($veritabani);
     $rezervasyonController = new RezervasyonController(new RezervasyonServisi($rezervasyonDeposu, $replikasyonDeposu));
+    $bakiyeController = new BakiyeController(new BakiyeServisi(new BakiyeDeposu($veritabani), $replikasyonDeposu));
 
     $yonlendirici = new Yonlendirici();
     $yonlendirici->get('/api/saglik', $saglikController->durum(...));
@@ -62,6 +66,8 @@ try {
     $yonlendirici->get('/api/rezervasyonlar', $rezervasyonController->listele(...));
     $yonlendirici->post('/api/rezervasyonlar', $rezervasyonController->yap(...));
     $yonlendirici->post('/api/rezervasyonlar/{id}/iptal', $rezervasyonController->iptal(...));
+    $yonlendirici->get('/api/bakiye', $bakiyeController->ozet(...));
+    $yonlendirici->post('/api/bakiye/yukle', $bakiyeController->yukle(...));
 
     $istek = (new OturumFiltresi($oturumServisi))->uygula(Istek::globallerdenOlustur());
     $yanit = $yonlendirici->yonlendir($istek);

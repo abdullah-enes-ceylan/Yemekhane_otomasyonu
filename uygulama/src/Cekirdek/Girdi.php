@@ -25,6 +25,22 @@ final class Girdi
         throw new IsKuraliHatasi("{$alanAdi} geçerli bir sayı olmalıdır.", 400);
     }
 
+    /**
+     * Para tutarı: "50", "50.5", "50.50" (en çok 2 ondalık). float'a çevrilmez, string olarak
+     * DECIMAL parametreye kayıpsız gider. Yalnızca BİÇİM kontrol edilir; 10–1000 TL kuralı yordamdadır.
+     */
+    public static function tutar(mixed $deger, string $alanAdi): string
+    {
+        if (is_int($deger) || is_float($deger)) {
+            $deger = (string) $deger;
+        }
+        if (is_string($deger) && preg_match('/^[0-9]{1,7}(\.[0-9]{1,2})?$/', $deger) === 1) {
+            return $deger;
+        }
+
+        throw new IsKuraliHatasi("{$alanAdi} en çok iki ondalıklı bir sayı olmalıdır (ör. 50 ya da 50.25).", 400);
+    }
+
     /** "2026-11-15" biçiminde, takvimde gerçekten var olan bir tarih */
     public static function tarih(mixed $deger, string $alanAdi): DateTimeImmutable
     {

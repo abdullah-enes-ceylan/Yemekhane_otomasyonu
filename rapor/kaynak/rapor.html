@@ -55,7 +55,7 @@
   <table class="durum">
     <tr><th>Bölüm</th><th>Durum</th></tr>
     <tr><td>Aşama 1 · Altyapı – dört doğrulama, komutlar ve çıktılar</td><td>Tamamlandı (12.11.2026)</td></tr>
-    <tr><td>Aşama 2 · Uygulama – servis, katmanlar, istek yolu, ekran 1–5, replikasyon gecikmesi</td><td>Devam ediyor (18.11.2026)</td></tr>
+    <tr><td>Aşama 2 · Uygulama – katmanlar, istek yolu, yedi ekran, okuma/yazma ayrımı, replikasyon gecikmesi, 400 px</td><td>Tamamlandı (18.11.2026)</td></tr>
     <tr><td>Aşama 3 · Redis</td><td>Hazırlanıyor</td></tr>
     <tr><td>Aşama 4 · Değişiklik talebi</td><td>Hazırlanıyor</td></tr>
     <tr><td>Varsayımlar</td><td>Güncel</td></tr>
@@ -322,6 +322,12 @@ Set-Cookie: yemekhane_oturum=********86f01a30; path=/; HttpOnly; SameSite=Strict
     <tr><td>Rezervasyonlarım listesi</td><td><code>RezervasyonDeposu::kullanicininRezervasyonlari</code></td><td>replika</td></tr>
     <tr><td>Bakiye hareket geçmişi</td><td><code>BakiyeDeposu::hareketler</code></td><td>replika</td></tr>
     <tr><td>Menüler, doluluk, giriş sorgusu</td><td><code>MenuDeposu</code>, <code>KullaniciDeposu</code></td><td>replika</td></tr>
+    <tr><td>Değerlendirme yaz</td><td><code>DegerlendirmeDeposu::ekle</code> · <code>INSERT</code></td><td>primary</td></tr>
+    <tr><td>"Menüyü kullandı mı?" kontrolü</td><td><code>DegerlendirmeDeposu::menuyuKullandiMi</code></td><td>primary (yazmadan hemen önce)</td></tr>
+    <tr><td>Değerlendirilecek menüler</td><td><code>DegerlendirmeDeposu::kullanilmisMenuler</code></td><td>replika</td></tr>
+    <tr><td>Yönetici raporu (doluluk, puan)</td><td><code>MenuYonetimDeposu::menuRaporu</code> · <code>v_menu_doluluk</code>, <code>v_menu_puan</code></td><td>replika</td></tr>
+    <tr><td>Menü oluştur / düzenle</td><td><code>MenuYonetimDeposu::menuOlustur</code>, <code>menuGuncelle</code> (tek transaction)</td><td>primary</td></tr>
+    <tr><td>Turnike geçişi</td><td><code>RezervasyonDeposu::turnikeGecisi</code> · <code>CALL sp_turnike_gecis</code></td><td>primary</td></tr>
   </table>
 
   <h3>Bir isteğin uygulama içindeki yolu: rezervasyon (stored procedure)</h3>
@@ -404,6 +410,44 @@ try {
      sayılır, yalnızca günlüğe uyarı düşülür. Düzeltmeden sonra aynı deneme 10'da 10 doğru sonuç verdi; bekleme dahil iptal isteği 9–12 ms sürdü
      (<code>rapor/asama-2/03_replikasyon_gecikmesi.txt</code>).</p>
 
+  <h3>Değerlendirme ve yönetici paneli</h3>
+  <p><b>"Yalnızca kullanılmış menü değerlendirilir"</b> kuralı şemada yoktur, uygulamanındır: <code>DegerlendirmeServisi::degerlendir</code>
+     yazmadan önce <code>DegerlendirmeDeposu::menuyuKullandiMi</code> ile kullanıcının o menüde <code>durum = 'kullanildi'</code> rezervasyonu olup
+     olmadığına bakar. Bu kontrol yazmanın hemen önündeki karar olduğu için <b>primary</b>'den okunur; turnike geçişi henüz replikaya
+     ulaşmamış olsa bile doğru sonuç verir. "Kişi başına menü başına tek oy" kuralını şemadaki <code>UNIQUE (kullanici_id, menu_id)</code> sağlar;
+     ikinci deneme MySQL 1062 hatası verir, veri katmanı bunu "Bu menüyü zaten değerlendirdiniz." (409) mesajına çevirir.</p>
+  <p><b>Yönetici raporu</b> (menü bazında doluluk ve ortalama puan) hazır view'lardan (<code>v_menu_doluluk</code>, <code>v_menu_puan</code>)
+     <b>replikadan</b> okunur. <b>Menü oluşturma ve düzenleme</b> para hareketi olmadığı için yordamsızdır; <code>menuler</code> ve
+     <code>menu_yemekleri</code> birlikte değiştiğinden <code>MenuYonetimDeposu</code> bunları primary'de uygulamanın açtığı tek bir transaction
+     içinde yazar (biri başarısız olursa ikisi de geri alınır). Düzenlemede yemekhane, tarih ve öğün değişmez (menünün kimliği ve Aşama 3'teki
+     önbellek anahtarı bunlardır); geçmiş tarihli menü oluşturulamaz ve düzenlenemez. Turnike bölümü <code>sp_turnike_gecis</code>'i çağırır;
+     menüyü yordam, tarih ve öğünün servis aralığından kendisi bulur.</p>
+<pre><span class="komut">&gt; curl -s -b ogrenci 'http://localhost:8080/api/admin/menuler?yemekhane_id=1'</span>
+<span class="hata">{"mesaj":"Bu işlem için yönetici yetkisi gerekir."} [HTTP 403]</span>
+
+<span class="komut">&gt; curl -s -b yonetici -X POST -d '{"yemekhane_id":2,"tarih":"2026-11-26","ogun_id":2,"ogrenci_fiyati":"40","personel_fiyati":"90","yemek_idleri":[3,12,22]}' http://localhost:8080/api/admin/menuler</span>
+{"menuId":88} [HTTP 201]
+
+<span class="komut">&gt; curl -s -b yonetici -X POST -d '{... aynı yemekhane, tarih, öğün ...}' http://localhost:8080/api/admin/menuler</span>
+<span class="hata">{"mesaj":"Bu yemekhane, tarih ve öğün için zaten bir menü var; onu düzenleyin."} [HTTP 409]</span>
+
+<span class="komut">&gt; curl -s -b personel -X POST -d '{"menu_id":56,"puan":4}' http://localhost:8080/api/degerlendirmeler     (turnikeden önce)</span>
+<span class="hata">{"mesaj":"Yalnızca kullandığınız (turnikeden geçtiğiniz) menüleri değerlendirebilirsiniz."} [HTTP 422]</span>
+
+<span class="komut">&gt; curl -s -b yonetici -X POST -d '{"kullanici":"murat.kaya@kampus.edu.tr","yemekhane_id":1,"zaman":"2026-11-20T12:30"}' http://localhost:8080/api/admin/turnike</span>
+{"kullanici":"Murat Kaya","rezervasyonId":370,"menuId":56,"ogun":"Öğle"} [HTTP 200]
+
+<span class="komut">&gt; curl -s -b personel -X POST -d '{"menu_id":56,"puan":4}' http://localhost:8080/api/degerlendirmeler</span>
+{"degerlendirmeId":77} [HTTP 201]
+
+<span class="komut">&gt; curl -s -b personel -X POST -d '{"menu_id":56,"puan":5}' http://localhost:8080/api/degerlendirmeler     (ikinci oy)</span>
+<span class="hata">{"mesaj":"Bu menüyü zaten değerlendirdiniz."} [HTTP 409]</span>
+
+<span class="komut">&gt; curl -s -b yonetici 'http://localhost:8080/api/admin/menuler?yemekhane_id=1&amp;baslangic=2026-11-20'   | menü 56</span>
+{"id": 56, "tarih": "2026-11-20", "rezerve": 7, "kapasite": 400, "dolulukYuzde": "1.8", "oySayisi": 1, "ortalamaPuan": "4.00"}</pre>
+  <p class="sonuc">Turnike geçişinden hemen sonra menü değerlendirilebildi ve puan yönetici raporundaki ortalamaya yansıdı. Tam çıktı (geçmiş tarih,
+     yemeksiz menü, tekrar turnike, geçersiz puan dahil): <code>rapor/asama-2/06_degerlendirme_yonetici_akisi.txt</code>.</p>
+
   <h3>Ekranlar (telefon genişliği, 375 px)</h3>
   <p>Hazır olan ekranlar: <b>1.</b> giriş/çıkış, <b>2.</b> günün menüsü (yemekhane, öğün, tarih seçimi; yemekler kategori sırasıyla; toplam kalori,
      vejetaryen ve alerjen bilgisi), <b>3.</b> haftalık menü (rolüne göre fiyat, boş yer, son saati geçen ya da zaten rezervasyonu olan
@@ -425,8 +469,36 @@ try {
   <div class="ekranlar">
     <figure><img src="../ekran/07_bakiye_hatali_tutar.jpg" alt="Hatalı yükleme tutarı mesajı"><figcaption>Yordam mesajı: 10–1000 TL kuralı</figcaption></figure>
     <figure><img src="../ekran/08_bakiye_yuklendi.jpg" alt="Bakiye yüklendi"><figcaption>Bakiye yüklendi, hareket listede</figcaption></figure>
+    <figure><img src="../ekran/09_degerlendirme_formu.jpg" alt="Değerlendirme formu"><figcaption>Değerlendirme: puan seçilmeden gönderim</figcaption></figure>
+  </div>
+  <p><b>6.</b> Değerlendirme: yalnızca turnikeden geçilmiş (rezervasyonu "kullanıldı") menüler listelenir; puan verilmemiş menüde 1–5 puan ve
+     yorum formu, verilmişse puan ve yorum gösterilir. <b>7.</b> Yönetici paneli: haftalık menü raporu (doluluk çubuğu, rezerve/kapasite,
+     ortalama puan ve oy sayısı), menü oluşturma ve düzenleme formu (yemekler kategoriye göre gruplu), turnike geçişi. Panel bağlantısı
+     gezinmede yalnızca yöneticiye gösterilir; asıl yetki denetimi API'dedir (403).</p>
+  <div class="ekranlar">
+    <figure><img src="../ekran/10_degerlendirme_kaydedildi.jpg" alt="Değerlendirme kaydedildi"><figcaption>Değerlendirme kaydedildi</figcaption></figure>
+    <figure><img src="../ekran/11_yonetici_rapor.jpg" alt="Yönetici menü raporu"><figcaption>Yönetici: doluluk ve ortalama puan</figcaption></figure>
+    <figure><img src="../ekran/12_yonetici_menu_duzenle.jpg" alt="Menü düzenleme formu"><figcaption>Menü düzenleme (anahtar alanlar kilitli)</figcaption></figure>
+  </div>
+  <div class="ekranlar">
+    <figure><img src="../ekran/13_yonetici_yeni_menu.jpg" alt="Oluşturulan menü listede"><figcaption>Arayüzden oluşturulan menü listede</figcaption></figure>
+    <figure><img src="../ekran/14_turnike.jpg" alt="Turnike geçişi"><figcaption>Turnike geçişi (sp_turnike_gecis)</figcaption></figure>
     <figure></figure>
   </div>
+
+  <h3>Telefon genişliği (~400 px)</h3>
+  <p>Arayüz mobil öncelikli yazıldı (tek sütun; 640 px üstünde iki/üç sütun). Yedi sayfanın her biri 400 px genişliğinde bir çerçevede açılıp
+     belge genişliği ve sağ kenarı 400 px'i aşan öğe sayısı ölçüldü; gezinme çubuğu bilerek kendi içinde yatay kaydırılır.</p>
+<pre><span class="komut">&gt; her sayfa için: scrollWidth ve 400 px'i aşan öğeler (rapor/asama-2/05_400px_kontrolu.txt)</span>
+/index.html            genislik: 400  tasan: []
+/menu.html             genislik: 400  tasan: []
+/haftalik.html         genislik: 400  tasan: []
+/rezervasyonlarim.html genislik: 400  tasan: []
+/bakiye.html           genislik: 400  tasan: []
+/degerlendirme.html    genislik: 400  tasan: []
+/admin.html            genislik: 400  tasan: []</pre>
+  <p class="sonuc">Yedi ekranın hiçbirinde yatay taşma yok. Dokunma hedefleri (düğmeler, puan kutuları) en az 44 px yüksekliğinde.
+     Bu bölümdeki tüm ekran görüntüleri 375 px genişlikte alındı.</p>
 </section>
 
 <!-- ============================ VARSAYIMLAR ============================ -->
@@ -472,6 +544,14 @@ try {
     <tr><td>Hareket geçmişi</td><td>Son 50 hareket</td><td>Şartta sayfalama istenmiyor; ekran telefonda okunabilir kalır.</td></tr>
     <tr><td>Yükleme tutarının denetimi</td><td>Uygulama yalnızca biçimi denetler (en çok 2 ondalık); 10–1000 TL kuralı yordamda</td>
         <td>Kural tek yerde kalır; tutar float'a çevrilmeden DECIMAL'e gider.</td></tr>
+    <tr><td>Değerlendirme</td><td>Bir kez verilir, sonradan değiştirilemez; "kullanıldı" kontrolü primary'den</td>
+        <td>Şema kişi başına menü başına tek oy diyor. Kontrol yazmanın hemen önündeki karar olduğu için replikasyon gecikmesinden etkilenmemeli.</td></tr>
+    <tr><td>Menü düzenleme kapsamı</td><td>Fiyatlar ve yemekler değişir; yemekhane, tarih, öğün değişmez. Geçmiş tarihe menü oluşturulmaz, geçmiş menü düzenlenmez</td>
+        <td>Yemekhane + tarih + öğün menünün kimliği ve önbellek anahtarıdır; geçmiş menüler rezervasyon ve puan kayıtlarıyla bağlıdır.</td></tr>
+    <tr><td>Menü yazmalarında transaction</td><td>Yordam yok; uygulama primary'de tek transaction açar</td>
+        <td><code>menuler</code> ve <code>menu_yemekleri</code> birlikte değişir; yemeksiz ya da yarım kalmış menü oluşmaz.</td></tr>
+    <tr><td>İş kuralı hatalarının HTTP kodu (uygulama)</td><td>Kural ihlali 422, tekrar eden kayıt 409, yetki 403</td>
+        <td>Yordam hatalarıyla (422) tutarlı; arayüz yalnızca mesajı gösterir.</td></tr>
   </table>
 </section>
 

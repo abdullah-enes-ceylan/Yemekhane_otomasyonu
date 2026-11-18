@@ -1,0 +1,12 @@
+# Arayüz ~400 px genişlikte kullanılabilir mi? (18.11.2026, tarayıcı, yönetici oturumuyla)
+# Her sayfa 400 px genişliğinde bir çerçevede açıldı; belge genişliği (scrollWidth) ve
+# sağ kenarı 400 px'i aşan öğeler ölçüldü. Gezinme çubuğu bilerek kendi içinde yatay kaydırılır, ölçüme alınmadı.
+> for sayfa in index, menu, haftalik, rezervasyonlarim, bakiye, degerlendirme, admin: scrollWidth, tasan_ogeler
+/index.html            genislik: 400  tasan: []
+/menu.html             genislik: 400  tasan: []
+/haftalik.html         genislik: 400  tasan: []
+/rezervasyonlarim.html genislik: 400  tasan: []
+/bakiye.html           genislik: 400  tasan: []
+/degerlendirme.html    genislik: 400  tasan: []
+/admin.html            genislik: 400  tasan: []
+# Sonuç: yedi ekranın hiçbirinde yatay taşma yok. Ekran görüntüleri 375 px'te alındı (rapor/ekran/).

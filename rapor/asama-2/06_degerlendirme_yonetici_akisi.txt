@@ -1,0 +1,90 @@
+# Gün 6 · Değerlendirme ve yönetici paneli (18.11.2026). -b ogrenci/personel/yonetici: ilgili hesabın oturum cookie'si.
+# 1) Yönetici olmayan kullanıcı /api/admin/ yoluna: OturumFiltresi 403
+> curl -s -b ogrenci 'http://localhost:8080/api/admin/menuler?yemekhane_id=1'
+{"mesaj":"Bu işlem için yönetici yetkisi gerekir."} [HTTP 403]
+
+# 2) Menü raporu: menü bazında doluluk (v_menu_doluluk) ve ortalama puan (v_menu_puan), replikadan (çıktıdan iki menü)
+> curl -s -b yonetici 'http://localhost:8080/api/admin/menuler?yemekhane_id=1&baslangic=2026-11-11'
+{
+ "baslangic": "2026-11-11",
+ "bitis": "2026-11-17",
+ "oncekiBaslangic": "2026-11-04",
+ "sonrakiBaslangic": "2026-11-18",
+ "menuler": [
+  {
+   "id": 2,
+   "tarih": "2026-11-11",
+   "ogun": {
+    "id": 2,
+    "ad": "Öğle"
+   },
+   "yemekler": "Yayla Çorbası, Sebzeli Güveç, Patates Püresi, Aşure",
+   "ogrenciFiyati": "40.00",
+   "personelFiyati": "90.00",
+   "kapasite": 400,
+   "rezerve": 6,
+   "bosYer": 394,
+   "dolulukYuzde": "1.5",
+   "oySayisi": 3,
+   "ortalamaPuan": "2.33",
+   "duzenlenebilir": false
+  },
+  {
+   "id": 3,
+   "tarih": "2026-11-11",
+   "ogun": {
+    "id": 3,
+    "ad": "Akşam"
+   },
+   "yemekler": "İşkembe Çorbası, Sebzeli Güveç, Mercimek Köftesi, Rus Salatası, Meyve Suyu",
+   "ogrenciFiyati": "40.00",
+   "personelFiyati": "90.00",
+   "kapasite": 400,
+   "rezerve": 1,
+   "bosYer": 399,
+   "dolulukYuzde": "0.3",
+   "oySayisi": 0,
+   "ortalamaPuan": null,
+   "duzenlenebilir": false
+  }
+ ]
+}
+
+
+# 3) Menü oluşturma: geçerli, aynı anahtarla ikinci kez, geçmiş tarih, yemeksiz
+> curl -s -b yonetici -X POST -d '{"yemekhane_id":2,"tarih":"2026-11-26","ogun_id":2,"ogrenci_fiyati":"40","personel_fiyati":"90","yemek_idleri":[3,12,22]}' http://localhost:8080/api/admin/menuler
+{"menuId":88} [HTTP 201]
+
+> curl -s -b yonetici -X POST -d '{... ayni yemekhane, tarih, ogun ...}' http://localhost:8080/api/admin/menuler
+{"mesaj":"Bu yemekhane, tarih ve öğün için zaten bir menü var; onu düzenleyin."} [HTTP 409]
+
+> curl -s -b yonetici -X POST -d '{"tarih":"2026-11-01", ...}' http://localhost:8080/api/admin/menuler
+{"mesaj":"Geçmiş bir tarih için menü oluşturulamaz."} [HTTP 422]
+
+> curl -s -b yonetici -X POST -d '{..., "yemek_idleri":[]}' http://localhost:8080/api/admin/menuler
+{"mesaj":"Yemekler en az bir seçim içermelidir."} [HTTP 400]
+
+# 4) Turnike (sp_turnike_gecis) → rezervasyon 'kullanildi' → hemen değerlendirilebilir
+> curl -s -b personel -X POST -d '{"menu_id":56,"puan":4}' http://localhost:8080/api/degerlendirmeler   (henüz kullanılmadı)
+{"mesaj":"Yalnızca kullandığınız (turnikeden geçtiğiniz) menüleri değerlendirebilirsiniz."} [HTTP 422]
+
+> curl -s -b yonetici -X POST -d '{"kullanici":"murat.kaya@kampus.edu.tr","yemekhane_id":1,"zaman":"2026-11-20T12:30"}' http://localhost:8080/api/admin/turnike
+{"kullanici":"Murat Kaya","rezervasyonId":370,"menuId":56,"ogun":"Öğle"} [HTTP 200]
+
+> curl -s -b yonetici -X POST -d '{... aynı geçiş tekrar ...}' http://localhost:8080/api/admin/turnike
+{"mesaj":"Bu rezervasyon zaten kullanıldı."} [HTTP 422]
+
+> curl -s -b personel -X POST -d '{"menu_id":56,"puan":4}' http://localhost:8080/api/degerlendirmeler
+{"degerlendirmeId":77} [HTTP 201]
+
+> curl -s -b personel -X POST -d '{"menu_id":56,"puan":5}' http://localhost:8080/api/degerlendirmeler   (ikinci oy)
+{"mesaj":"Bu menüyü zaten değerlendirdiniz."} [HTTP 409]
+
+> curl -s -b personel -X POST -d '{"menu_id":56,"puan":7}' http://localhost:8080/api/degerlendirmeler
+{"mesaj":"Puan 1 ile 5 arasında bir tamsayı olmalıdır."} [HTTP 400]
+
+# 5) Rapor: puan ortalamaya yansıdı (menü 56)
+> curl -s -b yonetici 'http://localhost:8080/api/admin/menuler?yemekhane_id=1&baslangic=2026-11-20'  | menü 56
+{"id": 56, "tarih": "2026-11-20", "rezerve": 7, "kapasite": 400, "dolulukYuzde": "1.8", "oySayisi": 1, "ortalamaPuan": "4.00"}
+
+

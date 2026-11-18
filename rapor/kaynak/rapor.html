@@ -71,7 +71,7 @@
   <table>
     <tr><th>Servis</th><th>Görevi</th><th>Erişim</th></tr>
     <tr><td><code>frontend</code></td><td>Apache 2.4: HTML/CSS/JS sunar, <code>/api/</code> isteklerini uygulamaya iletir</td><td>localhost:8080</td></tr>
-    <tr><td><code>uygulama</code></td><td>PHP 8.3 Web API, Apache + PDO (Aşama 2'de eklenecek)</td><td>uygulama:8000 (yalnızca iç ağ)</td></tr>
+    <tr><td><code>uygulama</code></td><td>PHP 8.3 Web API, Apache + PDO (bizim yazdığımız servis)</td><td>uygulama:8000 (yalnızca iç ağ)</td></tr>
     <tr><td><code>mysql-primary</code></td><td>Yazma; şema ve örnek veri ilk açılışta yüklenir</td><td>mysql-primary:3306 · localhost:3307</td></tr>
     <tr><td><code>mysql-replica</code></td><td>Okuma; salt okunur, aynı zamanda yedek</td><td>mysql-replica:3306 · localhost:3308</td></tr>
     <tr><td><code>replica-setup</code></td><td>Replikayı GTID ile bir kez kurar, salt okunur yapar ve çıkar</td><td>–</td></tr>
@@ -358,6 +358,8 @@ Set-Cookie: yemekhane_oturum=********86f01a30; path=/; HttpOnly; SameSite=Strict
         <td>Hangi e-postaların kayıtlı olduğu anlaşılamasın diye; kullanıcı yoksa da sahte bir bcrypt özetiyle doğrulama yapılır.</td></tr>
     <tr><td>Menünün önbelleğe girecek kısmı</td><td>Yalnızca içerik (yemekler, kalori, alerjen, iki fiyat)</td>
         <td>Boş yer, son saat ve kişiye özel alanlar (rolüne göre fiyat, kendi rezervasyonu) sık değişir; her istekte hesaplanır.</td></tr>
+    <tr><td>Bakiye ekranı</td><td>Güncel bakiye kaynaktan (primary), hareket geçmişi replikadan okunur</td>
+        <td>Kullanıcı rezervasyondan hemen sonra Bakiye sayfasına geçerse replika birkaç milisaniye geride olabilir; para bilgisi her zaman taze gösterilmeli. Hareket listesi ise sıradan bir listeleme olduğu için okuma kuralına uyar.</td></tr>
   </table>
 </section>
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Yemekhane\Servis;
 
+use Yemekhane\Depo\ReplikasyonDeposu;
 use Yemekhane\Depo\RezervasyonDeposu;
 use Yemekhane\Guvenlik\OturumKullanicisi;
 
@@ -21,14 +22,17 @@ final class RezervasyonServisi
         'iptal' => 'İptal edildi',
     ];
 
-    public function __construct(private readonly RezervasyonDeposu $rezervasyonDeposu)
-    {
+    public function __construct(
+        private readonly RezervasyonDeposu $rezervasyonDeposu,
+        private readonly ReplikasyonDeposu $replikasyonDeposu,
+    ) {
     }
 
     /** @return array{rezervasyonId: int, ucret: string, bakiye: string} */
     public function yap(OturumKullanicisi $kullanici, int $menuId): array
     {
         $sonuc = $this->rezervasyonDeposu->rezervasyonYap($kullanici->id, $menuId);
+        $this->replikayiBekle('rezervasyon');
 
         return [
             'rezervasyonId' => (int) $sonuc['rezervasyon_id'],
@@ -41,6 +45,7 @@ final class RezervasyonServisi
     public function iptalEt(OturumKullanicisi $kullanici, int $rezervasyonId): array
     {
         $sonuc = $this->rezervasyonDeposu->rezervasyonIptal($kullanici->id, $rezervasyonId);
+        $this->replikayiBekle('iptal');
 
         return [
             'rezervasyonId' => (int) $sonuc['rezervasyon_id'],
@@ -80,5 +85,16 @@ final class RezervasyonServisi
         }
 
         return ['gruplar' => array_values($gruplar)];
+    }
+
+    /**
+     * Yazma primary'de tamamlandı; arayüz hemen ardından listeyi replikadan isteyecek.
+     * Replika yetişmezse yazma yine geçerlidir, yalnızca uyarı günlüğe düşer.
+     */
+    private function replikayiBekle(string $islem): void
+    {
+        if (!$this->replikasyonDeposu->replikaninYetismesiniBekle()) {
+            error_log("[UYARI] Replika {$islem} sonrasında zamanında yetişmedi; liste bir an eski görünebilir.");
+        }
     }
 }

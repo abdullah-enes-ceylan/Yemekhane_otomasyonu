@@ -17,6 +17,7 @@ use Yemekhane\Controller\RezervasyonController;
 use Yemekhane\Controller\SaglikController;
 use Yemekhane\Depo\KullaniciDeposu;
 use Yemekhane\Depo\MenuDeposu;
+use Yemekhane\Depo\ReplikasyonDeposu;
 use Yemekhane\Depo\RezervasyonDeposu;
 use Yemekhane\Depo\SaglikDeposu;
 use Yemekhane\Guvenlik\OturumFiltresi;
@@ -47,7 +48,8 @@ try {
     $authController = new AuthController(new AuthServisi(new KullaniciDeposu($veritabani), $oturumServisi));
     $rezervasyonDeposu = new RezervasyonDeposu($veritabani);
     $menuController = new MenuController(new MenuServisi(new MenuDeposu($veritabani), $rezervasyonDeposu));
-    $rezervasyonController = new RezervasyonController(new RezervasyonServisi($rezervasyonDeposu));
+    $replikasyonDeposu = new ReplikasyonDeposu($veritabani);
+    $rezervasyonController = new RezervasyonController(new RezervasyonServisi($rezervasyonDeposu, $replikasyonDeposu));
 
     $yonlendirici = new Yonlendirici();
     $yonlendirici->get('/api/saglik', $saglikController->durum(...));

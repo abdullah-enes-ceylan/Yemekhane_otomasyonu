@@ -1,0 +1,30 @@
+> docker compose cp rapor/asama-2/gecikme_olcumu.php uygulama:/tmp/gecikme_olcumu.php
+> docker compose exec -T uygulama php /tmp/gecikme_olcumu.php
+ 1. primary (yordamın döndürdüğü): 580.00   hemen ardından replika: 570.00   <- ESKİ
+ 2. primary (yordamın döndürdüğü): 590.00   hemen ardından replika: 570.00   <- ESKİ
+ 3. primary (yordamın döndürdüğü): 600.00   hemen ardından replika: 580.00   <- ESKİ
+ 4. primary (yordamın döndürdüğü): 610.00   hemen ardından replika: 590.00   <- ESKİ
+ 5. primary (yordamın döndürdüğü): 620.00   hemen ardından replika: 600.00   <- ESKİ
+ 6. primary (yordamın döndürdüğü): 630.00   hemen ardından replika: 610.00   <- ESKİ
+ 7. primary (yordamın döndürdüğü): 640.00   hemen ardından replika: 620.00   <- ESKİ
+ 8. primary (yordamın döndürdüğü): 650.00   hemen ardından replika: 620.00   <- ESKİ
+ 9. primary (yordamın döndürdüğü): 660.00   hemen ardından replika: 630.00   <- ESKİ
+10. primary (yordamın döndürdüğü): 670.00   hemen ardından replika: 650.00   <- ESKİ
+11. primary (yordamın döndürdüğü): 680.00   hemen ardından replika: 660.00   <- ESKİ
+12. primary (yordamın döndürdüğü): 690.00   hemen ardından replika: 670.00   <- ESKİ
+13. primary (yordamın döndürdüğü): 700.00   hemen ardından replika: 680.00   <- ESKİ
+14. primary (yordamın döndürdüğü): 710.00   hemen ardından replika: 690.00   <- ESKİ
+15. primary (yordamın döndürdüğü): 720.00   hemen ardından replika: 700.00   <- ESKİ
+16. primary (yordamın döndürdüğü): 730.00   hemen ardından replika: 700.00   <- ESKİ
+17. primary (yordamın döndürdüğü): 740.00   hemen ardından replika: 710.00   <- ESKİ
+18. primary (yordamın döndürdüğü): 750.00   hemen ardından replika: 720.00   <- ESKİ
+19. primary (yordamın döndürdüğü): 760.00   hemen ardından replika: 720.00   <- ESKİ
+20. primary (yordamın döndürdüğü): 770.00   hemen ardından replika: 740.00   <- ESKİ
+20 denemenin 20 tanesinde replika henüz eski bakiyeyi gösteriyordu.
+
+# Düzeltmeden sonra (ReplikasyonDeposu: yazmadan sonra WAIT_FOR_EXECUTED_GTID_SET)
+# Tarayıcıda, oturum açıkken 10 kez: rezervasyon yap → iptal et → HEMEN ardından GET /api/rezervasyonlar (replikadan)
+# Düzeltmeden önce aynı deneme listede rezervasyonu hâlâ "aktif" gösteriyordu.
+> for 10 kez: POST /api/rezervasyonlar {menu_id:50} ; POST /api/rezervasyonlar/369/iptal ; GET /api/rezervasyonlar
+iptal (12 ms), iptal (9 ms), iptal (9 ms), iptal (10 ms), iptal (11 ms), iptal (11 ms), iptal (12 ms), iptal (10 ms), iptal (9 ms), iptal (9 ms)
+# Parantez içi: iptal isteğinin toplam süresi (replikanın yetişmesini bekleme dahil).

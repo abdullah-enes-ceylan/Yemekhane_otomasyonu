@@ -260,7 +260,7 @@ uid=33(www-data) gid=33(www-data) groups=33(www-data)</pre>
   <h3>Bir isteğin uygulama içindeki yolu: giriş</h3>
   <ol class="yol-adimlari">
     <li><b>Tarayıcı:</b> <code>frontend/js/giris.js</code> formu <code>POST /api/auth/giris</code> olarak gönderir. Apache <code>/api/</code> ile başlayan isteği <code>http://uygulama:8000</code>'e iletir.</li>
-    <li><b>Route:</b> <code>public/index.php:60</code> isteği <code>AuthController::giris</code>'e bağlar. Bu yol oturum filtresinde (<code>index.php:72</code>) oturum gerektirmeyen yollar arasındadır.</li>
+    <li><b>Route:</b> <code>public/index.php:79</code> isteği <code>AuthController::giris</code>'e bağlar. Bu yol oturum filtresinde (<code>index.php:100</code>) oturum gerektirmeyen yollar arasındadır.</li>
     <li><b>Controller:</b> <code>src/Controller/AuthController.php:20</code> e-posta ve şifrenin geldiğini kontrol eder, servisi çağırır.</li>
     <li><b>Servis:</b> <code>src/Servis/AuthServisi.php:27</code> kullanıcıyı ister, şifreyi bcrypt ile doğrular (<code>password_verify</code>, satır 30), Redis'te oturum açar.</li>
     <li><b>Veri katmanı:</b> <code>src/Depo/KullaniciDeposu.php:21</code> sorguyu <b>replikaya</b> gönderir (okuma).</li>
@@ -333,7 +333,7 @@ Set-Cookie: yemekhane_oturum=********86f01a30; path=/; HttpOnly; SameSite=Strict
   <h3>Bir isteğin uygulama içindeki yolu: rezervasyon (stored procedure)</h3>
   <ol class="yol-adimlari">
     <li><b>Tarayıcı:</b> Haftalık menüde "Rezervasyon yap" düğmesi (<code>frontend/js/haftalik.js:56</code>) <code>POST /api/rezervasyonlar</code> gönderir; gövdede yalnızca <code>menu_id</code> vardır.</li>
-    <li><b>Route:</b> <code>public/index.php:67</code> isteği <code>RezervasyonController::yap</code>'a bağlar. Oturum filtresi (<code>index.php:72</code>) Redis'teki oturumdan kullanıcıyı isteğe yerleştirir.</li>
+    <li><b>Route:</b> <code>public/index.php:86</code> isteği <code>RezervasyonController::yap</code>'a bağlar. Oturum filtresi (<code>index.php:100</code>) Redis'teki oturumdan kullanıcıyı isteğe yerleştirir.</li>
     <li><b>Controller:</b> <code>src/Controller/RezervasyonController.php:25</code> <code>menu_id</code>'nin pozitif tamsayı olduğunu doğrular; kullanıcı kimliğini <b>oturumdan</b> alır, istek gövdesinden asla.</li>
     <li><b>Servis:</b> <code>src/Servis/RezervasyonServisi.php:32</code> veri katmanını çağırır. Süre, kapasite ve bakiye kontrolleri burada tekrar edilmez; kural yordamdadır.</li>
     <li><b>Veri katmanı:</b> <code>src/Depo/RezervasyonDeposu.php:77</code> <code>CALL sp_rezervasyon_yap(?, ?)</code>'yı <b>primary</b>'ye gönderir. <code>YordamSonucu::tekSatir</code> (<code>src/Depo/YordamSonucu.php:30–35</code>) sonucu alır ve <code>closeCursor()</code> çağırır. Yordam kendi transaction'ını yönettiği için uygulamada <code>beginTransaction()</code> yoktur.</li>

@@ -55,7 +55,7 @@
   <table class="durum">
     <tr><th>Bölüm</th><th>Durum</th></tr>
     <tr><td>Aşama 1 · Altyapı – dört doğrulama, komutlar ve çıktılar</td><td>Tamamlandı (12.11.2026)</td></tr>
-    <tr><td>Aşama 2 · Uygulama – servis, katmanlar, istek yolu, ekran 1–3</td><td>Devam ediyor (15.11.2026)</td></tr>
+    <tr><td>Aşama 2 · Uygulama – servis, katmanlar, istek yolu, ekran 1–5, replikasyon gecikmesi</td><td>Devam ediyor (18.11.2026)</td></tr>
     <tr><td>Aşama 3 · Redis</td><td>Hazırlanıyor</td></tr>
     <tr><td>Aşama 4 · Değişiklik talebi</td><td>Hazırlanıyor</td></tr>
     <tr><td>Varsayımlar</td><td>Güncel</td></tr>
@@ -260,7 +260,7 @@ uid=33(www-data) gid=33(www-data) groups=33(www-data)</pre>
   <h3>Bir isteğin uygulama içindeki yolu: giriş</h3>
   <ol class="yol-adimlari">
     <li><b>Tarayıcı:</b> <code>frontend/js/giris.js</code> formu <code>POST /api/auth/giris</code> olarak gönderir. Apache <code>/api/</code> ile başlayan isteği <code>http://uygulama:8000</code>'e iletir.</li>
-    <li><b>Route:</b> <code>public/index.php:51</code> isteği <code>AuthController::giris</code>'e bağlar. Bu yol oturum filtresinde (<code>index.php:58</code>) oturum gerektirmeyen yollar arasındadır.</li>
+    <li><b>Route:</b> <code>public/index.php:60</code> isteği <code>AuthController::giris</code>'e bağlar. Bu yol oturum filtresinde (<code>index.php:72</code>) oturum gerektirmeyen yollar arasındadır.</li>
     <li><b>Controller:</b> <code>src/Controller/AuthController.php:20</code> e-posta ve şifrenin geldiğini kontrol eder, servisi çağırır.</li>
     <li><b>Servis:</b> <code>src/Servis/AuthServisi.php:27</code> kullanıcıyı ister, şifreyi bcrypt ile doğrular (<code>password_verify</code>, satır 30), Redis'te oturum açar.</li>
     <li><b>Veri katmanı:</b> <code>src/Depo/KullaniciDeposu.php:21</code> sorguyu <b>replikaya</b> gönderir (okuma).</li>
@@ -313,6 +313,96 @@ Set-Cookie: yemekhane_oturum=********86f01a30; path=/; HttpOnly; SameSite=Strict
      gönderildiğinde açılır; yalnızca okuyan bir istek kaynağa hiç bağlanmaz. Veri katmanındaki her sorgu hedefini kendi satırında yazar
      (ör. <code>$this-&gt;veritabani-&gt;replicaDb()-&gt;prepare(...)</code>); örtük bir yönlendirme mekanizması yoktur. Listeleme ve menü
      okumaları (<code>src/Depo/MenuDeposu.php</code>) replikadan yapılır; para hareketi yapan yazmalar stored procedure ile kaynağa gider.</p>
+  <table style="break-inside: avoid">
+    <tr><th>İşlem</th><th>Veri katmanı</th><th>Hedef</th></tr>
+    <tr><td>Rezervasyon yap</td><td><code>RezervasyonDeposu::rezervasyonYap</code> · <code>CALL sp_rezervasyon_yap</code></td><td>primary</td></tr>
+    <tr><td>Rezervasyon iptal</td><td><code>RezervasyonDeposu::rezervasyonIptal</code> · <code>CALL sp_rezervasyon_iptal</code></td><td>primary</td></tr>
+    <tr><td>Bakiye yükle</td><td><code>BakiyeDeposu::bakiyeYukle</code> · <code>CALL sp_bakiye_yukle</code></td><td>primary</td></tr>
+    <tr><td>Bakiye ekranındaki güncel bakiye</td><td><code>BakiyeDeposu::guncelBakiye</code></td><td>primary (aşağıdaki gecikme bölümü)</td></tr>
+    <tr><td>Rezervasyonlarım listesi</td><td><code>RezervasyonDeposu::kullanicininRezervasyonlari</code></td><td>replika</td></tr>
+    <tr><td>Bakiye hareket geçmişi</td><td><code>BakiyeDeposu::hareketler</code></td><td>replika</td></tr>
+    <tr><td>Menüler, doluluk, giriş sorgusu</td><td><code>MenuDeposu</code>, <code>KullaniciDeposu</code></td><td>replika</td></tr>
+  </table>
+
+  <h3>Bir isteğin uygulama içindeki yolu: rezervasyon (stored procedure)</h3>
+  <ol class="yol-adimlari">
+    <li><b>Tarayıcı:</b> Haftalık menüde "Rezervasyon yap" düğmesi (<code>frontend/js/haftalik.js:56</code>) <code>POST /api/rezervasyonlar</code> gönderir; gövdede yalnızca <code>menu_id</code> vardır.</li>
+    <li><b>Route:</b> <code>public/index.php:67</code> isteği <code>RezervasyonController::yap</code>'a bağlar. Oturum filtresi (<code>index.php:72</code>) Redis'teki oturumdan kullanıcıyı isteğe yerleştirir.</li>
+    <li><b>Controller:</b> <code>src/Controller/RezervasyonController.php:25</code> <code>menu_id</code>'nin pozitif tamsayı olduğunu doğrular; kullanıcı kimliğini <b>oturumdan</b> alır, istek gövdesinden asla.</li>
+    <li><b>Servis:</b> <code>src/Servis/RezervasyonServisi.php:32</code> veri katmanını çağırır. Süre, kapasite ve bakiye kontrolleri burada tekrar edilmez; kural yordamdadır.</li>
+    <li><b>Veri katmanı:</b> <code>src/Depo/RezervasyonDeposu.php:77</code> <code>CALL sp_rezervasyon_yap(?, ?)</code>'yı <b>primary</b>'ye gönderir. <code>YordamSonucu::tekSatir</code> (<code>src/Depo/YordamSonucu.php:30–35</code>) sonucu alır ve <code>closeCursor()</code> çağırır. Yordam kendi transaction'ını yönettiği için uygulamada <code>beginTransaction()</code> yoktur.</li>
+    <li><b>Yanıt:</b> HTTP 201 ve yordamın döndürdüğü satır: <code>{"rezervasyonId", "ucret", "bakiye"}</code>. Arayüz bu <code>bakiye</code>'yi gösterir.</li>
+  </ol>
+<pre><span class="komut">// src/Depo/RezervasyonDeposu.php · para hareketi primary'de, stored procedure ile</span>
+public function rezervasyonYap(int $kullaniciId, int $menuId): array
+{
+    $sorgu = $this-&gt;veritabani-&gt;primaryDb()-&gt;prepare('CALL sp_rezervasyon_yap(?, ?)');
+
+    return YordamSonucu::tekSatir($sorgu, [$kullaniciId, $menuId]);
+}
+
+<span class="komut">// src/Depo/YordamSonucu.php · CALL → tek satır → imleci kapat</span>
+try {
+    $sorgu-&gt;execute($parametreler);
+    $satir = $sorgu-&gt;fetch();
+} finally {
+    // CALL, sonuç satırından sonra ayrıca bir durum sonucu döndürür. İmleç kapatılmazsa
+    // aynı bağlantıdaki bir sonraki sorgu "2014 Commands out of sync" hatası verir.
+    $sorgu-&gt;closeCursor();
+}</pre>
+
+  <h3>Yordam hata mesajının arayüze taşınması</h3>
+  <p>Yordamlar iş kuralı ihlalinde <code>SIGNAL SQLSTATE '45000'</code> ile Türkçe mesaj döner. PDO bunu <code>PDOException</code> olarak fırlatır;
+     <code>src/Hata/HataYakalayici.php</code> SQLSTATE'in <code>45000</code> olduğunu görünce (satır 19) mesajı <code>errorInfo[2]</code>'den alır (satır 57) ve
+     HTTP 422 + <code>{"mesaj": "..."}</code> döner (satır 29). <code>frontend/js/api.js:47</code> bu mesajı <code>ApiHatasi</code> olarak fırlatır, sayfa
+     <code>bildirimGoster()</code> ile olduğu gibi gösterir. Diğer veritabanı hataları (ör. CHECK ihlali) kullanıcıya ham gösterilmez: genel mesaj + günlük.</p>
+<pre><span class="komut">&gt; curl -s -b mehmet -H 'Content-Type: application/json' -d '{"menu_id":55}' http://localhost:8080/api/rezervasyonlar</span>
+{"rezervasyonId":372,"ucret":"25.00","bakiye":"895.25"} [HTTP 201]
+
+<span class="komut">&gt; curl -s -b mehmet -H 'Content-Type: application/json' -d '{"menu_id":55}' http://localhost:8080/api/rezervasyonlar</span>
+<span class="hata">{"mesaj":"Bu menü için zaten rezervasyonunuz var."} [HTTP 422]</span>
+
+<span class="komut">&gt; curl -s -b ayse -H 'Content-Type: application/json' -d '{"menu_id":55}' http://localhost:8080/api/rezervasyonlar</span>
+<span class="hata">{"mesaj":"Bakiye yetersiz."} [HTTP 422]</span>
+
+<span class="komut">&gt; curl -s -b mehmet -X POST http://localhost:8080/api/rezervasyonlar/372/iptal</span>
+{"rezervasyonId":372,"iade":"25.00","bakiye":"920.25"} [HTTP 200]
+
+<span class="komut">&gt; curl -s -b mehmet -H 'Content-Type: application/json' -d '{"menu_id":55}' http://localhost:8080/api/rezervasyonlar</span>
+{"rezervasyonId":372,"ucret":"25.00","bakiye":"895.25"} [HTTP 201]
+
+<span class="komut">&gt; curl -s -b mehmet -X POST http://localhost:8080/api/rezervasyonlar/1/iptal</span>
+<span class="hata">{"mesaj":"Rezervasyon bulunamadı."} [HTTP 422]</span>
+
+<span class="komut">&gt; curl -s -b mehmet -H 'Content-Type: application/json' -d '{"tutar":"5"}' http://localhost:8080/api/bakiye/yukle</span>
+<span class="hata">{"mesaj":"Yükleme tutarı 10 ile 1000 TL arasında olmalıdır."} [HTTP 422]</span>
+
+<span class="komut">&gt; curl -s -b mehmet -H 'Content-Type: application/json' -d '{"tutar":"50"}' http://localhost:8080/api/bakiye/yukle</span>
+{"hareketId":546,"bakiye":"945.25"} [HTTP 201]</pre>
+  <p class="sonuc">İptal edilip yeniden yapılan rezervasyon yeni satır açmadı; aynı kayıt (372) yeniden "aktif" oldu. Başkasına ait bir rezervasyonu
+     iptal etme denemesini yordam "bulunamadı" diye reddetti. Tüm kullanıcılarda bakiye, hareketlerin toplamına primary'de ve replikada eşit
+     (tutarsız kullanıcı sayısı 0). Tam çıktı: <code>rapor/asama-2/04_rezervasyon_bakiye_akisi.txt</code>.</p>
+  <p class="not"><code>-b mehmet</code> ve <code>-b ayse</code>: ilgili hesabın giriş isteğinden alınan oturum cookie'si.</p>
+
+  <h3>Rezervasyondan hemen sonra gösterilen bakiye neden primary'den okunur?</h3>
+  <p>Replikasyon asenkrondur: primary bir işlemi commit ettiğinde bunu binlog'a yazar, replika da kendi hızında alıp uygular. Arada kısa da olsa
+     bir gecikme vardır ve bu sürede replikadan okuyan bir sorgu eski veriyi görür. Rezervasyondan hemen sonra bakiye replikadan okunsaydı
+     kullanıcı, parası düşmüş olduğu hâlde eski bakiyesini görebilirdi. Bu yüzden rezervasyon, iptal ve yükleme sonrasında ekranda gösterilen
+     bakiye, yordamın <b>primary'de</b> hesaplayıp döndürdüğü değerdir. Bakiye sayfasındaki güncel bakiye de aynı nedenle primary'den okunur
+     (<code>BakiyeDeposu::guncelBakiye</code>); hareket listesi ise sıradan bir listeleme olduğu için replikadan gelir. Gecikmenin gerçek olduğunu
+     ölçtük: primary'ye yazıp hemen ardından replikadan okuyan bir betik, 20 denemenin 20'sinde replikada eski bakiyeyi gördü.</p>
+<pre><span class="komut">&gt; docker compose exec -T uygulama php /tmp/gecikme_olcumu.php</span>
+ 1. primary (yordamın döndürdüğü): 380.00   hemen ardından replika: 370.00   <span class="hata">&lt;- ESKİ</span>
+ 2. primary (yordamın döndürdüğü): 390.00   hemen ardından replika: 380.00   <span class="hata">&lt;- ESKİ</span>
+ …
+20. primary (yordamın döndürdüğü): 570.00   hemen ardından replika: 550.00   <span class="hata">&lt;- ESKİ</span>
+20 denemenin 20 tanesinde replika henüz eski bakiyeyi gösteriyordu.</pre>
+  <p>Aynı gecikme arayüzde de göründü: kullanıcı bir rezervasyonu iptal ettikten sonra liste (replikadan) yenilendiğinde kayıt hâlâ "Aktif" ve
+     "İptal et" düğmesiyle görünüyordu. Çözüm olarak para hareketi yapan her yazmadan sonra uygulama, primary'nin uyguladığı GTID kümesinin
+     replikaya geçmesini en fazla 1 saniye bekler (<code>src/Depo/ReplikasyonDeposu.php</code>, <code>WAIT_FOR_EXECUTED_GTID_SET</code>), sonra yanıtı döner.
+     Böylece okumalar yine replikada kalır ama kullanıcı kendi yaptığı değişikliği hemen görür. Replika 1 saniyede yetişmezse yazma geçerli
+     sayılır, yalnızca günlüğe uyarı düşülür. Düzeltmeden sonra aynı deneme 10'da 10 doğru sonuç verdi; bekleme dahil iptal isteği 9–12 ms sürdü
+     (<code>rapor/asama-2/03_replikasyon_gecikmesi.txt</code>).</p>
 
   <h3>Ekranlar (telefon genişliği, 375 px)</h3>
   <p>Hazır olan ekranlar: <b>1.</b> giriş/çıkış, <b>2.</b> günün menüsü (yemekhane, öğün, tarih seçimi; yemekler kategori sırasıyla; toplam kalori,
@@ -323,6 +413,19 @@ Set-Cookie: yemekhane_oturum=********86f01a30; path=/; HttpOnly; SameSite=Strict
     <figure><img src="../ekran/01_giris_hatali_sifre.png" alt="Hatalı şifrede giriş ekranı"><figcaption>Giriş: hata mesajı API'den gelir</figcaption></figure>
     <figure><img src="../ekran/02_gunun_menusu.png" alt="Günün menüsü ekranı"><figcaption>Günün menüsü</figcaption></figure>
     <figure><img src="../ekran/03_haftalik_menu.png" alt="Haftalık menü ekranı"><figcaption>Haftalık menü: pasif düğme ve nedeni</figcaption></figure>
+  </div>
+  <p><b>3.</b> haftalık menüdeki düğme artık rezervasyon yapar, <b>4.</b> Rezervasyonlarım (aktif / kullanıldı / iptal; süresi dolmamış aktif
+     rezervasyonda "İptal et"), <b>5.</b> Bakiye (güncel bakiye, son 50 hareket, yükleme). Gruplama ve "iptal edilebilir mi" kararı API'de
+     (<code>iptalEdilebilir</code>, yordamla aynı son saat koşuluyla SQL'de) verilir; 10–1000 TL kuralı yordamdadır, arayüz yalnızca mesajı gösterir.</p>
+  <div class="ekranlar">
+    <figure><img src="../ekran/04_bakiye_yetersiz.jpg" alt="Bakiye yetersiz mesajı"><figcaption>Yordam mesajı: "Bakiye yetersiz."</figcaption></figure>
+    <figure><img src="../ekran/05_rezervasyon_basarili.jpg" alt="Rezervasyon sonrası bildirim"><figcaption>Rezervasyon sonrası primary'deki bakiye</figcaption></figure>
+    <figure><img src="../ekran/06_rezervasyonlarim.jpg" alt="Rezervasyonlarım ekranı"><figcaption>Rezervasyonlarım ve iptal</figcaption></figure>
+  </div>
+  <div class="ekranlar">
+    <figure><img src="../ekran/07_bakiye_hatali_tutar.jpg" alt="Hatalı yükleme tutarı mesajı"><figcaption>Yordam mesajı: 10–1000 TL kuralı</figcaption></figure>
+    <figure><img src="../ekran/08_bakiye_yuklendi.jpg" alt="Bakiye yüklendi"><figcaption>Bakiye yüklendi, hareket listede</figcaption></figure>
+    <figure></figure>
   </div>
 </section>
 
@@ -360,6 +463,15 @@ Set-Cookie: yemekhane_oturum=********86f01a30; path=/; HttpOnly; SameSite=Strict
         <td>Boş yer, son saat ve kişiye özel alanlar (rolüne göre fiyat, kendi rezervasyonu) sık değişir; her istekte hesaplanır.</td></tr>
     <tr><td>Bakiye ekranı</td><td>Güncel bakiye kaynaktan (primary), hareket geçmişi replikadan okunur</td>
         <td>Kullanıcı rezervasyondan hemen sonra Bakiye sayfasına geçerse replika birkaç milisaniye geride olabilir; para bilgisi her zaman taze gösterilmeli. Hareket listesi ise sıradan bir listeleme olduğu için okuma kuralına uyar.</td></tr>
+    <tr><td>Yazmadan sonra okuma</td><td>Para hareketinden sonra replikanın yetişmesi en çok 1 sn beklenir (<code>WAIT_FOR_EXECUTED_GTID_SET</code>)</td>
+        <td>Ölçülen gecikme yüzünden kullanıcı iptal ettiği rezervasyonu listede hâlâ aktif görüyordu. Okumalar replikada kalır; kullanıcı kendi yazdığını hemen görür.</td></tr>
+    <tr><td>İptal uç noktası</td><td><code>POST /api/rezervasyonlar/{id}/iptal</code></td>
+        <td>Kayıt silinmez; durumu değişir ve ücret iade edilir. <code>DELETE</code> bu anlamı taşımaz.</td></tr>
+    <tr><td>Rezervasyonlarım gruplaması</td><td>API aktif / kullanıldı / iptal gruplarını ve <code>iptalEdilebilir</code> alanını döner</td>
+        <td>Arayüzde iş kuralı olmasın; son saat karşılaştırması veritabanında, yordamla aynı koşulla yapılır.</td></tr>
+    <tr><td>Hareket geçmişi</td><td>Son 50 hareket</td><td>Şartta sayfalama istenmiyor; ekran telefonda okunabilir kalır.</td></tr>
+    <tr><td>Yükleme tutarının denetimi</td><td>Uygulama yalnızca biçimi denetler (en çok 2 ondalık); 10–1000 TL kuralı yordamda</td>
+        <td>Kural tek yerde kalır; tutar float'a çevrilmeden DECIMAL'e gider.</td></tr>
   </table>
 </section>
 

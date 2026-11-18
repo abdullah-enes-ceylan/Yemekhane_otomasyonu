@@ -1,0 +1,53 @@
+# Gün 5 · Rezervasyon, iptal ve bakiye akışı (18.11.2026). Oturum cookie'si giriş isteğinden alındı (-b).
+# 1) Rezervasyon (sp_rezervasyon_yap, primary). Dönen bakiye primary'deki taze değer.
+> curl -s -b mehmet -H 'Content-Type: application/json' -d '{"menu_id":55}' http://localhost:8080/api/rezervasyonlar
+{"rezervasyonId":372,"ucret":"25.00","bakiye":"895.25"} [HTTP 201]
+
+# 2) Aynı menüye ikinci kez: yordamın 45000 mesajı → HTTP 422
+> curl -s -b mehmet -H 'Content-Type: application/json' -d '{"menu_id":55}' http://localhost:8080/api/rezervasyonlar
+{"mesaj":"Bu menü için zaten rezervasyonunuz var."} [HTTP 422]
+
+# 3) Bakiyesi 12,50 TL olan öğrenci: Bakiye yetersiz.
+> curl -s -b ayse -H 'Content-Type: application/json' -d '{"menu_id":55}' http://localhost:8080/api/rezervasyonlar
+{"mesaj":"Bakiye yetersiz."} [HTTP 422]
+
+# 4) İptal (sp_rezervasyon_iptal): ödenen ücret iade edilir
+> curl -s -b mehmet -X POST http://localhost:8080/api/rezervasyonlar/372/iptal
+{"rezervasyonId":372,"iade":"25.00","bakiye":"920.25"} [HTTP 200]
+
+# 5) Aynı menüye yeniden rezervasyon: yeni satır açılmaz, aynı rezervasyon_id (372) yeniden 'aktif' olur
+> curl -s -b mehmet -H 'Content-Type: application/json' -d '{"menu_id":55}' http://localhost:8080/api/rezervasyonlar
+{"rezervasyonId":372,"ucret":"25.00","bakiye":"895.25"} [HTTP 201]
+
+# 6) Başkasının rezervasyonunu iptal denemesi: yordam 'bulunamadı' der (bilgi sızdırmaz)
+> curl -s -b mehmet -X POST http://localhost:8080/api/rezervasyonlar/1/iptal
+{"mesaj":"Rezervasyon bulunamadı."} [HTTP 422]
+
+# 7) Bakiye yükleme: 5 TL (yordamın kuralı) ve 50 TL
+> curl -s -b mehmet -H 'Content-Type: application/json' -d '{"tutar":"5"}' http://localhost:8080/api/bakiye/yukle
+{"mesaj":"Yükleme tutarı 10 ile 1000 TL arasında olmalıdır."} [HTTP 422]
+
+> curl -s -b mehmet -H 'Content-Type: application/json' -d '{"tutar":"50"}' http://localhost:8080/api/bakiye/yukle
+{"hareketId":546,"bakiye":"945.25"} [HTTP 201]
+
+# 8) Oturum olmadan
+> curl -s http://localhost:8080/api/bakiye
+{"mesaj":"Oturumunuz bulunamadı ya da süresi doldu. Lütfen giriş yapın."} [HTTP 401]
+
+# 9) Kural: bakiye = hareketler toplamı, primary ve replikada (tutarsız kullanıcı sayısı)
+> docker compose exec -T mysql-primary mysql ... -e "SELECT COUNT(*) AS tutarsiz_kullanici FROM kullanicilar k WHERE k.bakiye <> (SELECT COALESCE(SUM(tutar),0) FROM bakiye_hareketleri h WHERE h.kullanici_id = k.id)"
++--------------------+
+| tutarsiz_kullanici |
++--------------------+
+|                  0 |
++--------------------+
+
+> docker compose exec -T mysql-replica mysql ... -e "SELECT COUNT(*) AS tutarsiz_kullanici FROM kullanicilar k WHERE k.bakiye <> (SELECT COALESCE(SUM(tutar),0) FROM bakiye_hareketleri h WHERE h.kullanici_id = k.id)"
++--------------------+
+| tutarsiz_kullanici |
++--------------------+
+|                  0 |
++--------------------+
+
+> docker compose logs uygulama | grep -cE 'HATA|Commands out of sync'
+0

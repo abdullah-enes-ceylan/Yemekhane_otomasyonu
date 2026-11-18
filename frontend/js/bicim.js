@@ -8,6 +8,11 @@ function paraYaz(tutar) {
   return paraBicimi.format(Number(tutar));
 }
 
+/* "2.33" → "2,33" (ondalık ayırıcı Türkçe) */
+function ondalikYaz(sayi) {
+  return Number(sayi).toLocaleString('tr-TR', { maximumFractionDigits: 2 });
+}
+
 /* "2026-11-15" → yerel tarih (saat dilimi kaymasın diye parçalardan kurulur) */
 function tarihNesnesi(gun) {
   const [yil, ay, gunNo] = gun.split('-').map(Number);

@@ -4,6 +4,9 @@
    kullanılır, genişleyen ekranda içerik ortalanır.
    ===================================================================== */
 
+/* hidden özniteliği, display veren sınıflara (ör. .dugme) karşı da geçerli olsun */
+[hidden] { display: none !important; }
+
 /* ---------- Üst çubuk ---------- */
 .ust-cubuk {
   background: var(--ana);
@@ -282,8 +285,36 @@ main.kapsayici { padding-block: 1.25rem 2rem; }
 .verilen-puan { margin-top: 0.5rem; }
 .verilen-yorum { margin: 0.35rem 0 0; font-style: italic; }
 
+/* ---------- Yönetici paneli ---------- */
+.dugme-ikincil { background: var(--yuzey); color: var(--ana); border: 1px solid var(--ana); }
+.dugme-ikincil:hover { background: var(--basari-zemin); color: var(--ana-koyu); }
+.rapor-satiri { padding: 0.75rem 0; border-top: 1px solid var(--zemin); }
+.rapor-satiri:first-child { border-top: 0; }
+.rapor-baslik { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.25rem 0.75rem; }
+.rapor-satiri .ogun-yemekleri { margin: 0.2rem 0 0.5rem; }
+.doluluk { display: grid; gap: 0.25rem; font-size: var(--boyut-kucuk); }
+.doluluk-cubugu { height: 8px; border-radius: 999px; background: var(--zemin); overflow: hidden; }
+.doluluk-cubugu span { display: block; height: 100%; background: var(--ana); }
+.rapor-alt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  font-size: var(--boyut-kucuk);
+}
+.yemek-secimi { display: grid; gap: 0.75rem; margin-bottom: 1rem; }
+.yemek-grubu { border: 1px solid var(--cizgi); border-radius: var(--kose); padding: 0.5rem 0.75rem 0.75rem; margin: 0; }
+.yemek-grubu legend { font-weight: 600; padding: 0 0.25rem; }
+.yemek-secenegi { display: flex; align-items: center; gap: 0.4rem; font-weight: 400; margin: 0; min-height: 36px; }
+.yemek-secenegi input { width: 20px; height: 20px; margin: 0; }
+.form-dugmeleri { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+select:disabled, input:disabled { background: var(--zemin); color: var(--metin-soluk); }
+
 @media (min-width: 640px) {
   .kart { padding: 1.5rem; }
+  .yemek-secimi { grid-template-columns: repeat(2, 1fr); }
   .secim-satiri { grid-template-columns: repeat(3, 1fr); }
   .secim-satiri.iki-sutun { grid-template-columns: repeat(2, 1fr); }
 }

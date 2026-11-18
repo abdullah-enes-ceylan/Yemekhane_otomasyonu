@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Yönetici paneli · Yemekhane</title>
+  <link rel="stylesheet" href="/css/temel.css">
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="/js/api.js" defer></script>
+  <script src="/js/bicim.js" defer></script>
+  <script src="/js/oturum.js" defer></script>
+  <script src="/js/admin.js" defer></script>
+</head>
+<body>
+  <header class="ust-cubuk">
+    <div class="kapsayici">
+      <a class="marka" href="/menu.html">Yemekhane</a>
+      <div class="kullanici-alani">
+        <span id="kullanici-adi"></span>
+        <span id="kullanici-rolu" class="rol"></span>
+        <button id="cikis-dugmesi" type="button" class="dugme-cizgili">Çıkış</button>
+      </div>
+    </div>
+  </header>
+  <nav class="gezinme" aria-label="Sayfalar">
+    <div class="kapsayici"><ul id="gezinme"></ul></div>
+  </nav>
+
+  <main class="kapsayici">
+    <h1>Yönetici paneli</h1>
+    <p id="sayfa-bildirimi" class="bildirim" hidden></p>
+
+    <!-- 1. Menü bazında doluluk ve ortalama puan (rapor, replikadan) -->
+    <section class="kart" aria-labelledby="rapor-baslik">
+      <h2 id="rapor-baslik">Menüler: doluluk ve puan</h2>
+      <form id="rapor-secimi" class="secim-satiri">
+        <div class="form-alani">
+          <label for="rapor-yemekhane">Yemekhane</label>
+          <select id="rapor-yemekhane" name="yemekhane"></select>
+        </div>
+      </form>
+      <div class="hafta-gezinme">
+        <button id="onceki-hafta" type="button" class="dugme">‹ Önceki</button>
+        <span id="hafta-araligi" class="hafta-araligi"></span>
+        <button id="sonraki-hafta" type="button" class="dugme">Sonraki ›</button>
+      </div>
+      <div id="rapor-alani" class="rapor-listesi" aria-live="polite"></div>
+    </section>
+
+    <!-- 2. Menü oluşturma / düzenleme (primary) -->
+    <section class="kart" aria-labelledby="form-baslik" id="menu-formu-bolumu">
+      <h2 id="form-baslik">Yeni menü</h2>
+      <p id="form-bildirimi" class="bildirim" hidden></p>
+      <form id="menu-formu" novalidate>
+        <div class="secim-satiri">
+          <div class="form-alani">
+            <label for="form-yemekhane">Yemekhane</label>
+            <select id="form-yemekhane" name="yemekhane_id"></select>
+          </div>
+          <div class="form-alani">
+            <label for="form-tarih">Tarih</label>
+            <input id="form-tarih" name="tarih" type="date" required>
+          </div>
+          <div class="form-alani">
+            <label for="form-ogun">Öğün</label>
+            <select id="form-ogun" name="ogun_id"></select>
+          </div>
+        </div>
+        <div class="secim-satiri iki-sutun">
+          <div class="form-alani">
+            <label for="form-ogrenci-fiyati">Öğrenci fiyatı (₺)</label>
+            <input id="form-ogrenci-fiyati" name="ogrenci_fiyati" type="number" inputmode="decimal" step="0.01" min="0" required>
+          </div>
+          <div class="form-alani">
+            <label for="form-personel-fiyati">Personel fiyatı (₺)</label>
+            <input id="form-personel-fiyati" name="personel_fiyati" type="number" inputmode="decimal" step="0.01" min="0" required>
+          </div>
+        </div>
+        <div id="yemek-secimi" class="yemek-secimi"></div>
+        <div class="form-dugmeleri">
+          <button type="submit" class="dugme">Kaydet</button>
+          <button type="button" id="vazgec" class="dugme dugme-ikincil" hidden>Vazgeç</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- 3. Turnike geçişi (sp_turnike_gecis) -->
+    <section class="kart" aria-labelledby="turnike-baslik">
+      <h2 id="turnike-baslik">Turnike geçişi</h2>
+      <p class="soluk">Kart okutmanın yerine geçer: aktif rezervasyonu "kullanıldı" yapar. Zaman boşsa şimdiki an kullanılır.</p>
+      <p id="turnike-bildirimi" class="bildirim" hidden></p>
+      <form id="turnike-formu" novalidate>
+        <div class="form-alani">
+          <label for="turnike-kullanici">E-posta ya da öğrenci numarası</label>
+          <input id="turnike-kullanici" name="kullanici" type="text" autocomplete="off" required>
+        </div>
+        <div class="secim-satiri iki-sutun">
+          <div class="form-alani">
+            <label for="turnike-yemekhane">Yemekhane</label>
+            <select id="turnike-yemekhane" name="yemekhane_id"></select>
+          </div>
+          <div class="form-alani">
+            <label for="turnike-zaman">Zaman (isteğe bağlı)</label>
+            <input id="turnike-zaman" name="zaman" type="datetime-local">
+          </div>
+        </div>
+        <button type="submit" class="dugme">Geçişi kaydet</button>
+      </form>
+    </section>
+  </main>
+</body>
+</html>

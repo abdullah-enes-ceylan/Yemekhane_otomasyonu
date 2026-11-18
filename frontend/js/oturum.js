@@ -14,13 +14,15 @@ const SAYFALAR = [
   { adres: '/rezervasyonlarim.html', ad: 'Rezervasyonlarım' },
   { adres: '/bakiye.html', ad: 'Bakiye' },
   { adres: '/degerlendirme.html', ad: 'Değerlendirme' },
+  // Yalnızca gösterim: asıl yetki kontrolü API'de (OturumFiltresi, /api/admin/ → 403)
+  { adres: '/admin.html', ad: 'Yönetici paneli', rol: 'yonetici' },
 ];
 
-function gezinmeyiCiz() {
+function gezinmeyiCiz(kullanici) {
   const liste = document.getElementById('gezinme');
   if (!liste) return;
 
-  for (const sayfa of SAYFALAR) {
+  for (const sayfa of SAYFALAR.filter((s) => !s.rol || s.rol === kullanici.rol)) {
     const baglanti = oge('a', 'gezinme-baglantisi', sayfa.ad);
     baglanti.href = sayfa.adres;
     if (location.pathname === sayfa.adres) {
@@ -37,7 +39,7 @@ async function oturumuBaslat() {
 
   document.getElementById('kullanici-adi').textContent = `${kullanici.ad} ${kullanici.soyad}`;
   document.getElementById('kullanici-rolu').textContent = ROL_ADLARI[kullanici.rol] ?? kullanici.rol;
-  gezinmeyiCiz();
+  gezinmeyiCiz(kullanici);
 
   document.getElementById('cikis-dugmesi').addEventListener('click', async () => {
     try {

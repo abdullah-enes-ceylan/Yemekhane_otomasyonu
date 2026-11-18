@@ -74,6 +74,7 @@ try {
         $kullaniciDeposu,
         $rezervasyonDeposu,
         $replikasyonDeposu,
+        $menuOnbellegi,
     ));
 
     $yonlendirici = new Yonlendirici();

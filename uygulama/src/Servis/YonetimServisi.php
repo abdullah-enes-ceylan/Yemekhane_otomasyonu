@@ -27,6 +27,7 @@ final class YonetimServisi
         private readonly KullaniciDeposu $kullaniciDeposu,
         private readonly RezervasyonDeposu $rezervasyonDeposu,
         private readonly ReplikasyonDeposu $replikasyonDeposu,
+        private readonly MenuOnbellegi $menuOnbellegi,
     ) {
     }
 
@@ -120,6 +121,8 @@ final class YonetimServisi
             $yemekIdleri,
         );
         $this->replikayiBekle('menü oluşturma');
+        // "Menü yok" önbelleğe alınmıyor; yine de aynı anahtarda kayıt kalmasın
+        $this->menuOnbellegi->sil($yemekhaneId, $tarih->format('Y-m-d'), $ogunId);
 
         return ['menuId' => $menuId];
     }
@@ -131,8 +134,12 @@ final class YonetimServisi
     public function menuGuncelle(int $menuId, string $ogrenciFiyati, string $personelFiyati, array $yemekIdleri): array
     {
         $this->yemeklerVarMi($yemekIdleri);
-        $this->menuYonetimDeposu->menuGuncelle($menuId, $ogrenciFiyati, $personelFiyati, $yemekIdleri);
+        $menu = $this->menuYonetimDeposu->menuGuncelle($menuId, $ogrenciFiyati, $personelFiyati, $yemekIdleri);
+
+        // Sıra önemli: önce replikanın yeni menüyü almasını bekle, SONRA önbelleği sil. Önce silseydik,
+        // araya giren bir okuma replikadan ESKİ menüyü alıp gün sonuna kadar yeniden önbelleğe yazabilirdi.
         $this->replikayiBekle('menü düzenleme');
+        $this->menuOnbellegi->sil($menu['yemekhane_id'], $menu['tarih'], $menu['ogun_id']);
 
         return ['menuId' => $menuId];
     }

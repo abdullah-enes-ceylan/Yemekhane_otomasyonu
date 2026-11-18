@@ -251,6 +251,37 @@ main.kapsayici { padding-block: 1.25rem 2rem; }
 .hareket-rezervasyon { color: var(--metin); }
 .hareket-zamani { grid-column: 1 / -1; font-size: var(--boyut-kucuk); color: var(--metin-soluk); }
 
+/* ---------- Değerlendirme ---------- */
+.degerlendirme-karti h2 { font-size: var(--boyut); margin-bottom: 0.15rem; }
+.degerlendirme-karti .soluk { margin-bottom: 0.35rem; }
+.puan-secimi {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  border: 0;
+  margin: 0.75rem 0 1rem;
+  padding: 0;
+}
+.puan-secimi legend { font-weight: 600; margin-bottom: 0.4rem; padding: 0; }
+.puan-secimi input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.puan-secimi label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin: 0;
+  border: 1px solid var(--cizgi);
+  border-radius: var(--kose);
+  background: var(--yuzey);
+  cursor: pointer;
+}
+.puan-secimi input:checked + label { background: var(--ana); border-color: var(--ana); color: #fff; }
+.puan-secimi input:focus-visible + label { outline: 3px solid var(--vurgu); outline-offset: 2px; }
+.yildizlar { color: var(--vurgu); font-size: var(--boyut-buyuk); letter-spacing: 0.1em; }
+.verilen-puan { margin-top: 0.5rem; }
+.verilen-yorum { margin: 0.35rem 0 0; font-style: italic; }
+
 @media (min-width: 640px) {
   .kart { padding: 1.5rem; }
   .secim-satiri { grid-template-columns: repeat(3, 1fr); }

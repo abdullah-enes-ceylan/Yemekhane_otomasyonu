@@ -227,6 +227,30 @@ main.kapsayici { padding-block: 1.25rem 2rem; }
 .rezervasyon-ayrinti { grid-column: 1; font-size: var(--boyut-kucuk); color: var(--metin-soluk); }
 .rezervasyon-satiri .dugme { grid-column: 2; grid-row: 2 / span 2; }
 
+/* ---------- Bakiye ---------- */
+.bakiye-karti h2 { font-size: var(--boyut-kucuk); font-weight: 600; margin-bottom: 0.25rem; }
+.bakiye-tutari {
+  font-size: 2.25rem;
+  font-weight: 700;
+  color: var(--ana);
+  margin: 0 0 1rem;
+}
+.yukleme-formu .soluk { margin: 0.35rem 0 0; }
+.hareket-listesi { list-style: none; margin: 0; padding: 0; }
+.hareket-satiri {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.15rem 0.75rem;
+  padding: 0.6rem 0;
+  border-top: 1px solid var(--zemin);
+}
+.hareket-satiri:first-child { border-top: 0; }
+.hareket-turu { font-weight: 600; }
+.hareket-tutari { font-weight: 700; text-align: right; }
+.hareket-yukleme, .hareket-iade { color: var(--basari); }
+.hareket-rezervasyon { color: var(--metin); }
+.hareket-zamani { grid-column: 1 / -1; font-size: var(--boyut-kucuk); color: var(--metin-soluk); }
+
 @media (min-width: 640px) {
   .kart { padding: 1.5rem; }
   .secim-satiri { grid-template-columns: repeat(3, 1fr); }

@@ -12,6 +12,7 @@ const SAYFALAR = [
   { adres: '/menu.html', ad: 'Günün menüsü' },
   { adres: '/haftalik.html', ad: 'Haftalık menü' },
   { adres: '/rezervasyonlarim.html', ad: 'Rezervasyonlarım' },
+  { adres: '/bakiye.html', ad: 'Bakiye' },
 ];
 
 function gezinmeyiCiz() {

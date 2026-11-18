@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bakiye · Yemekhane</title>
+  <link rel="stylesheet" href="/css/temel.css">
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="/js/api.js" defer></script>
+  <script src="/js/bicim.js" defer></script>
+  <script src="/js/oturum.js" defer></script>
+  <script src="/js/bakiye.js" defer></script>
+</head>
+<body>
+  <header class="ust-cubuk">
+    <div class="kapsayici">
+      <a class="marka" href="/menu.html">Yemekhane</a>
+      <div class="kullanici-alani">
+        <span id="kullanici-adi"></span>
+        <span id="kullanici-rolu" class="rol"></span>
+        <button id="cikis-dugmesi" type="button" class="dugme-cizgili">Çıkış</button>
+      </div>
+    </div>
+  </header>
+  <nav class="gezinme" aria-label="Sayfalar">
+    <div class="kapsayici"><ul id="gezinme"></ul></div>
+  </nav>
+
+  <main class="kapsayici">
+    <h1>Bakiye</h1>
+
+    <p id="sayfa-bildirimi" class="bildirim" hidden></p>
+
+    <section class="kart bakiye-karti" aria-labelledby="bakiye-baslik">
+      <h2 id="bakiye-baslik" class="soluk">Güncel bakiye</h2>
+      <p id="guncel-bakiye" class="bakiye-tutari" aria-live="polite">–</p>
+
+      <form id="yukleme-formu" class="yukleme-formu" novalidate>
+        <div class="form-alani">
+          <label for="tutar">Yüklenecek tutar (₺)</label>
+          <input id="tutar" name="tutar" type="number" inputmode="decimal" step="0.01" placeholder="ör. 100" required>
+          <p class="soluk">Tek seferde 10 ile 1000 TL arası yüklenebilir.</p>
+        </div>
+        <button type="submit" class="dugme">Bakiye yükle</button>
+      </form>
+    </section>
+
+    <section class="kart" aria-labelledby="hareket-baslik">
+      <h2 id="hareket-baslik">Hareket geçmişi</h2>
+      <p id="hareket-notu" class="soluk"></p>
+      <ul id="hareket-listesi" class="hareket-listesi"></ul>
+    </section>
+  </main>
+</body>
+</html>

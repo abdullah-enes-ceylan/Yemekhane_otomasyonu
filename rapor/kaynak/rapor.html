@@ -56,7 +56,7 @@
     <tr><th>Bölüm</th><th>Durum</th></tr>
     <tr><td>Aşama 1 · Altyapı – dört doğrulama, komutlar ve çıktılar</td><td>Tamamlandı (12.11.2026)</td></tr>
     <tr><td>Aşama 2 · Uygulama – katmanlar, istek yolu, yedi ekran, okuma/yazma ayrımı, replikasyon gecikmesi, 400 px</td><td>Tamamlandı (18.11.2026)</td></tr>
-    <tr><td>Aşama 3 · Redis</td><td>Hazırlanıyor</td></tr>
+    <tr><td>Aşama 3 · Redis – menü önbelleği (HIT/MISS, geçersizleştirme), oturum (kayan süre, restart)</td><td>Tamamlandı (18.11.2026)</td></tr>
     <tr><td>Aşama 4 · Değişiklik talebi</td><td>Hazırlanıyor</td></tr>
     <tr><td>Varsayımlar</td><td>Güncel</td></tr>
   </table>
@@ -501,6 +501,126 @@ try {
      Bu bölümdeki tüm ekran görüntüleri 375 px genişlikte alındı.</p>
 </section>
 
+<!-- ============================ AŞAMA 3 ============================ -->
+<section class="bolum">
+  <h2>Aşama 3 · Redis</h2>
+  <p>Redis iki iş için kullanılır. İkisine de uygulama phpredis eklentisiyle doğrudan bağlanır; PHP'nin yerleşik oturum mekanizması
+     kullanılmaz (anahtarı <code>PHPREDIS_SESSION:…</code> olurdu, şart <code>oturum:{token}</code>). Redis AOF açık çalıştığı için
+     kayıtlar Redis yeniden başlasa da korunur.</p>
+  <table>
+    <tr><th>Görev</th><th>Anahtar</th><th>Süre</th><th>Ne zaman silinir</th><th>Kodda</th></tr>
+    <tr><td>Menü önbelleği</td><td><code>menu:{yemekhane_id}:{tarih}:{ogun_id}</code></td>
+        <td>Anahtardaki tarihin gün sonu (23:59:59, İstanbul), <code>SET … EXAT</code></td>
+        <td>Yönetici o menüyü oluşturduğunda / düzenlediğinde</td>
+        <td><code>src/Servis/MenuOnbellegi.php</code></td></tr>
+    <tr><td>Oturum</td><td><code>oturum:{token}</code></td>
+        <td>30 dakika, her istekte yeniden 30 dakika (<code>GETEX … EX 1800</code>)</td>
+        <td>Çıkış yapıldığında (<code>DEL</code>)</td>
+        <td><code>src/Guvenlik/OturumServisi.php</code></td></tr>
+  </table>
+
+  <h3>Menü önbelleği: ne önbelleğe giriyor, nasıl okunuyor</h3>
+  <p>Önbelleğe menünün yalnızca yönetici değiştirmedikçe aynı kalan içeriği girer: yemekler (kategori sırasıyla), kaloriler, alerjenler ve iki
+     fiyat. Boş yer, rolüne göre fiyat, rezervasyona açık mı ve kullanıcının kendi rezervasyonu her istekte ayrıca hesaplanır; böylece
+     önbellek tüm kullanıcılar için ortaktır ve bayatlaması yalnızca yöneticinin değişikliğine bağlıdır.
+     <code>MenuServisi::menuIcerigi</code> (satır 111) önce <code>MenuOnbellegi::oku</code>'yu çağırır (satır 113); kayıt yoksa menüyü replikadan
+     okur ve <code>MenuOnbellegi::yaz</code> ile önbelleğe yazar (satır 120). Her okuma uygulama günlüğüne <code>[ONBELLEK] HIT</code> ya da
+     <code>MISS</code> olarak düşer. Tarihi geçmiş menüler ve "menü yok" sonucu önbelleğe alınmaz. Redis'e ulaşılamazsa menü veritabanından gelir.</p>
+
+  <h3>1. İlk istek veritabanından, ikincisi Redis'ten</h3>
+<pre><span class="komut">&gt; docker compose exec -T redis redis-cli EXISTS menu:1:2026-11-20:2</span>
+0
+<span class="komut">&gt; curl -s -b ogrenci 'http://localhost:8080/api/menu/gunluk?yemekhane_id=1&amp;ogun_id=2&amp;tarih=2026-11-20'   # 1. istek</span>
+{"id": 56, "tarih": "2026-11-20", "ogun": {"id": 2, "ad": "Öğle"}, "fiyat": "40.00", "toplamKalori": 1200} ... yemekler: Mercimek Çorbası, Tavuk Şiş, Patates Püresi, Fıstıklı Baklava
+<span class="komut">&gt; curl -s -b ogrenci 'http://localhost:8080/api/menu/gunluk?yemekhane_id=1&amp;ogun_id=2&amp;tarih=2026-11-20'   # 2. istek</span>
+{"id": 56, "tarih": "2026-11-20", "ogun": {"id": 2, "ad": "Öğle"}, "fiyat": "40.00", "toplamKalori": 1200} ... yemekler: Mercimek Çorbası, Tavuk Şiş, Patates Püresi, Fıstıklı Baklava
+
+<span class="komut">&gt; docker compose logs uygulama | grep ONBELLEK</span>
+uygulama-1  | [18-Nov-2026 17:48:02 Europe/Istanbul] [ONBELLEK] MISS menu:1:2026-11-20:2 (veritabanından okunacak)
+uygulama-1  | [18-Nov-2026 17:48:02 Europe/Istanbul] [ONBELLEK] HIT menu:1:2026-11-20:2
+
+<span class="komut">&gt; docker compose exec -T redis redis-cli GET menu:1:2026-11-20:2</span>
+{"id":56,"tarih":"2026-11-20","yemekhane":{"id":1,"ad":"Merkez Yemekhane"},"ogun":{"id":2,"ad":"Öğle"},"ogrenciFiyati":"40.00","personelFiyati":"90.00","yemekler":[{"id":1,"ad":"Mercimek Çorbası","kategori":"Çorba","kalori":180,"vejetaryen":true,"alerjenler":["Kereviz"],"alerjenIdleri":[9]}, … ],"toplamKalori":1200}
+
+<span class="komut">&gt; docker compose exec -T redis redis-cli TTL menu:1:2026-11-20:2</span>
+195115
+<span class="komut">&gt; docker compose exec -T redis redis-cli EXPIRETIME menu:1:2026-11-20:2</span>
+1795208399
+<span class="komut">&gt; docker compose exec -T uygulama php -r "echo date('Y-m-d H:i:s T', 1795208399);"</span>
+2026-11-20 23:59:59 +03</pre>
+  <p class="sonuc">İlk istek <b>MISS</b> (veritabanından okundu ve önbelleğe yazıldı), ikincisi <b>HIT</b> (Redis'ten). Anahtar şarttaki biçimde ve
+     bitiş anı anahtardaki tarihin gün sonu: 20.11.2026 23:59:59 (İstanbul). İki yanıt birebir aynı; ortak önbellekten gelse de personel
+     90,00, öğrenci 40,00 TL görür çünkü rol fiyatı önbellekten sonra hesaplanır. Tam çıktı: <code>rapor/asama-3/01_onbellek_hit_miss.txt</code>.</p>
+
+  <h3>2. Menü güncellenince eski kayıt siliniyor, arayüz yeni menüyü gösteriyor</h3>
+  <p>Yönetici menüyü kaydettiğinde <code>YonetimServisi::menuGuncelle</code> önce veritabanını günceller, sonra replikanın yeni menüyü almasını
+     bekler (satır 141), en son anahtarı siler (satır 142). Sıra bilinçlidir: anahtar replika yetişmeden silinseydi, araya giren bir okuma
+     replikadan <b>eski</b> menüyü alıp gün sonuna kadar yeniden önbelleğe yazabilirdi. Menü oluşturmada da aynı anahtar silinir.</p>
+<pre><span class="komut">&gt; curl -s -b ogrenci '…/api/menu/gunluk?yemekhane_id=1&amp;ogun_id=2&amp;tarih=2026-11-25'   (iki kez)</span>
+fiyat: 42.50 | yemekler: Ezogelin Çorbası, Izgara Köfte, Pirinç Pilavı
+<span class="komut">&gt; docker compose exec -T redis redis-cli EXISTS menu:1:2026-11-25:2</span>
+1
+<span class="komut">&gt; curl -s -b yonetici -X PUT -H 'Content-Type: application/json' -d '{"ogrenci_fiyati":"44.00","personel_fiyati":"95.00","yemek_idleri":[2,11,21,38]}' http://localhost:8080/api/admin/menuler/86</span>
+{"menuId":86} [HTTP 200]
+<span class="komut">&gt; docker compose exec -T redis redis-cli EXISTS menu:1:2026-11-25:2      # eski kayıt silindi</span>
+0
+<span class="komut">&gt; curl -s -b ogrenci '…/api/menu/gunluk?yemekhane_id=1&amp;ogun_id=2&amp;tarih=2026-11-25'</span>
+fiyat: 44.00 | yemekler: Ezogelin Çorbası, Izgara Köfte, Pirinç Pilavı, Fıstıklı Baklava
+
+<span class="komut">&gt; docker compose logs uygulama | grep ONBELLEK</span>
+uygulama-1  | [18-Nov-2026 17:48:34 Europe/Istanbul] [ONBELLEK] MISS menu:1:2026-11-25:2 (veritabanından okunacak)
+uygulama-1  | [18-Nov-2026 17:48:34 Europe/Istanbul] [ONBELLEK] HIT menu:1:2026-11-25:2
+uygulama-1  | [18-Nov-2026 17:48:35 Europe/Istanbul] [ONBELLEK] SIL menu:1:2026-11-25:2 (silindi)
+uygulama-1  | [18-Nov-2026 17:48:36 Europe/Istanbul] [ONBELLEK] MISS menu:1:2026-11-25:2 (veritabanından okunacak)</pre>
+  <p class="sonuc">Düzenlemeden sonra anahtar silindi (<code>SIL</code>); bir sonraki istek veritabanından yeni menüyü getirdi (<code>MISS</code>) ve
+     yeniden önbelleğe yazdı. Aynı deneme arayüzden de yapıldı: günün menüsü ekranı açıkken yönetici tatlıyı değiştirdi, sayfa yenilenince
+     yeni menü göründü. Tam çıktı: <code>rapor/asama-3/02_onbellek_gecersizlestirme.txt</code>.</p>
+  <div class="ekranlar">
+    <figure><img src="../ekran/15_onbellek_duzenleme_oncesi.jpg" alt="Düzenleme öncesi menü"><figcaption>Önce (önbellekte): Fıstıklı Baklava, 1400 kcal</figcaption></figure>
+    <figure><img src="../ekran/16_onbellek_duzenleme_sonrasi.jpg" alt="Düzenleme sonrası menü"><figcaption>Yönetici düzenledi: Sütlaç, 1250 kcal</figcaption></figure>
+    <figure></figure>
+  </div>
+
+  <h3>3. Oturum: 30 dakika kayan süre, çıkışta silinme, uygulama yeniden başlasa da düşmeme</h3>
+  <p>Girişte <code>bin2hex(random_bytes(32))</code> ile 64 karakterlik rastgele bir token üretilir (<code>OturumServisi.php:25</code>) ve Redis'e
+     <code>oturum:{token}</code> anahtarıyla 1800 saniyelik süreyle yazılır (satır 29). Token tarayıcıya <code>HttpOnly; SameSite=Strict</code>
+     cookie ile verilir. Her istekte <code>OturumFiltresi</code> (satır 31) <code>GETEX … EX 1800</code> ile oturumu okur ve süresini aynı komutta
+     yeniden 30 dakikaya çeker (<code>OturumServisi.php:43</code>). Çıkışta anahtar <code>DEL</code> ile silinir (satır 54). Oturum uygulama
+     container'ının belleğinde değil Redis'te durduğu için uygulama yeniden başlasa da kullanıcı oturumunu kaybetmez.</p>
+<pre><span class="komut">&gt; curl -s -i -c cerez -X POST -H 'Content-Type: application/json' -d '{"eposta":"mehmet.yildiz@ogr.kampus.edu.tr","sifre":"Yemek2026!"}' http://localhost:8080/api/auth/giris</span>
+HTTP/1.1 200 OK
+Set-Cookie: yemekhane_oturum=d481d873…aef231f4; path=/; HttpOnly; SameSite=Strict
+<span class="komut">&gt; docker compose exec -T redis redis-cli GET oturum:d481d873…aef231f4</span>
+{"id":7,"ad":"Mehmet","soyad":"Yıldız","rol":"ogrenci"}
+<span class="komut">&gt; docker compose exec -T redis redis-cli TTL oturum:d481d873…aef231f4</span>
+1799
+<span class="komut">&gt; (5 sn sonra) docker compose exec -T redis redis-cli TTL oturum:d481d873…aef231f4</span>
+1793
+<span class="komut">&gt; curl -s -b cerez http://localhost:8080/api/auth/ben</span>
+{"kullanici":{"id":7,"ad":"Mehmet","soyad":"Yıldız","rol":"ogrenci"}}
+<span class="komut">&gt; docker compose exec -T redis redis-cli TTL oturum:d481d873…aef231f4      # istek süreyi yeniledi</span>
+1800
+
+<span class="komut">&gt; docker compose restart uygulama</span>
+ Container yemekhane-uygulama-1 Restarting
+ Container yemekhane-uygulama-1 Started
+<span class="komut">&gt; docker compose ps uygulama --format '{{.Service}} {{.Status}}'</span>
+uygulama Up 5 seconds (healthy)
+<span class="komut">&gt; curl -s -w ' [HTTP %{http_code}]' -b cerez http://localhost:8080/api/auth/ben      # aynı cookie, yeni container</span>
+{"kullanici":{"id":7,"ad":"Mehmet","soyad":"Yıldız","rol":"ogrenci"}} [HTTP 200]
+
+<span class="komut">&gt; curl -s -i -b cerez -X POST http://localhost:8080/api/auth/cikis</span>
+HTTP/1.1 200 OK
+Set-Cookie: yemekhane_oturum=deleted; expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0; path=/; HttpOnly; SameSite=Strict
+<span class="komut">&gt; docker compose exec -T redis redis-cli EXISTS oturum:d481d873…aef231f4</span>
+0
+<span class="komut">&gt; curl -s -w ' [HTTP %{http_code}]' -b cerez http://localhost:8080/api/auth/ben</span>
+<span class="hata">{"mesaj":"Oturumunuz bulunamadı ya da süresi doldu. Lütfen giriş yapın."} [HTTP 401]</span></pre>
+  <p class="sonuc">Oturum Redis'te 1800 sn süreyle duruyor ve her istek süreyi yeniden 1800'e çekiyor (kayan süre). Uygulama container'ı yeniden
+     başlatıldıktan sonra aynı cookie ile istek 200 döndü. Çıkışta anahtar silindi ve aynı cookie 401 aldı. Token'ın ortası rapor için
+     kısaltıldı. Tam çıktı: <code>rapor/asama-3/03_oturum.txt</code>.</p>
+</section>
+
 <!-- ============================ VARSAYIMLAR ============================ -->
 <section class="bolum">
   <h2>Varsayımlar</h2>
@@ -510,7 +630,7 @@ try {
     <tr><th>Konu</th><th>Karar</th><th>Gerekçe</th></tr>
     <tr><td>Yöneticinin ödeyeceği fiyat</td><td>Personel fiyatı</td>
         <td><code>sp_rezervasyon_yap</code>: <code>IF(rol = 'ogrenci', ogrenci_fiyati, personel_fiyati)</code>. Arayüz aynı kuralı gösterir.</td></tr>
-    <tr><td>Menü önbelleğinin süresi</td><td>Anahtardaki tarihin gün sonu (Europe/Istanbul 23:59:59), <code>EXPIREAT</code></td>
+    <tr><td>Menü önbelleğinin süresi</td><td>Anahtardaki tarihin gün sonu (Europe/Istanbul 23:59:59), <code>SET … EXAT</code></td>
         <td>"O günün sonuna kadar" şartı. Tarihi geçmiş menüler önbelleğe alınmaz.</td></tr>
     <tr><td>Migration dosyasının yeri</td><td><code>db/init/04_degisiklik.sql</code>, tekrar çalıştırılabilir (idempotent)</td>
         <td>Temiz kurulumda da çalışır; çalışan sistemde aynı dosya yalnızca kaynağa uygulanır, replikaya replikasyonla geçer.</td></tr>
@@ -550,6 +670,12 @@ try {
         <td>Yemekhane + tarih + öğün menünün kimliği ve önbellek anahtarıdır; geçmiş menüler rezervasyon ve puan kayıtlarıyla bağlıdır.</td></tr>
     <tr><td>Menü yazmalarında transaction</td><td>Yordam yok; uygulama primary'de tek transaction açar</td>
         <td><code>menuler</code> ve <code>menu_yemekleri</code> birlikte değişir; yemeksiz ya da yarım kalmış menü oluşmaz.</td></tr>
+    <tr><td>Önbelleğe alınmayanlar</td><td>Tarihi geçmiş menüler ve "menü yok" sonucu</td>
+        <td>Geçmiş menünün süresi zaten dolmuş olurdu; "menü yok" önbelleğe alınsaydı yeni oluşturulan menü gün sonuna kadar görünmeyebilirdi.</td></tr>
+    <tr><td>Önbellek silme sırası</td><td>Veritabanı güncellenir → replika beklenir → anahtar silinir</td>
+        <td>Replika yetişmeden silinirse araya giren bir okuma eski menüyü yeniden önbelleğe yazabilir.</td></tr>
+    <tr><td>Redis'e ulaşılamazsa</td><td>Menü önbelleği atlanır, menü veritabanından gelir ve günlüğe yazılır; oturum doğrulanamadığı için oturum gerektiren istekler genel hata mesajı (500) alır</td>
+        <td>Önbellek hızlandırıcıdır; oturum ise güvenlik bilgisidir, doğrulanamıyorsa erişim verilmez. Ham hata kullanıcıya gösterilmez.</td></tr>
     <tr><td>İş kuralı hatalarının HTTP kodu (uygulama)</td><td>Kural ihlali 422, tekrar eden kayıt 409, yetki 403</td>
         <td>Yordam hatalarıyla (422) tutarlı; arayüz yalnızca mesajı gösterir.</td></tr>
   </table>

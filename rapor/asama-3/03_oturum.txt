@@ -1,0 +1,51 @@
+# Aşama 3 · Oturum: oturum:{token}, 30 dk, her istekte yenilenir, çıkışta silinir; uygulama yeniden başlasa da düşmez. 18.11.2026
+# Token'ın ortası rapor için '…' ile kısaltıldı (çıkıştan sonra zaten geçersiz).
+# 1) Giriş: token üretilir, Redis'e 1800 sn süreyle yazılır, HttpOnly cookie ile verilir
+> curl -s -i -c cerez -X POST -H 'Content-Type: application/json' -d '{"eposta":"mehmet.yildiz@ogr.kampus.edu.tr","sifre":"Yemek2026!"}' http://localhost:8080/api/auth/giris | grep -E 'HTTP|Set-Cookie|kullanici'
+HTTP/1.1 200 OK
+Set-Cookie: yemekhane_oturum=d481d873…aef231f4; path=/; HttpOnly; SameSite=Strict
+{"kullanici":{"id":7,"ad":"Mehmet","soyad":"Yıldız","rol":"ogrenci"}}
+
+> docker compose exec -T redis redis-cli --scan --pattern 'oturum:*'
+(toplam anahtar) 5
+oturum:d481d873…aef231f4
+
+> docker compose exec -T redis redis-cli GET oturum:d481d873…aef231f4
+{"id":7,"ad":"Mehmet","soyad":"Yıldız","rol":"ogrenci"}
+
+> docker compose exec -T redis redis-cli TTL oturum:d481d873…aef231f4
+1799
+
+# 2) Kayan süre: 5 sn beklenir, süre azalır; yeni bir istek süreyi yeniden 1800 sn'ye çeker (GETEX ... EX 1800)
+> (5 sn sonra) docker compose exec -T redis redis-cli TTL oturum:d481d873…aef231f4
+1793
+
+> curl -s -b cerez http://localhost:8080/api/auth/ben
+{"kullanici":{"id":7,"ad":"Mehmet","soyad":"Yıldız","rol":"ogrenci"}}
+
+> docker compose exec -T redis redis-cli TTL oturum:d481d873…aef231f4
+1800
+
+# 3) Uygulama container'ı yeniden başlatılır: oturum Redis'te durduğu için düşmez
+> docker compose restart uygulama
+ Container yemekhane-uygulama-1 Restarting 
+ Container yemekhane-uygulama-1 Started 
+> docker compose ps uygulama --format '{{.Service}} {{.Status}}'
+uygulama Up 5 seconds (healthy)
+
+> curl -s -w ' [HTTP %{http_code}]' -b cerez http://localhost:8080/api/auth/ben      # aynı cookie, yeni container
+{"kullanici":{"id":7,"ad":"Mehmet","soyad":"Yıldız","rol":"ogrenci"}} [HTTP 200]
+
+> docker compose exec -T redis redis-cli TTL oturum:d481d873…aef231f4
+1800
+
+# 4) Çıkış: anahtar silinir, aynı cookie artık geçersiz
+> curl -s -i -b cerez -X POST http://localhost:8080/api/auth/cikis | grep -E 'HTTP|Set-Cookie'
+HTTP/1.1 200 OK
+Set-Cookie: yemekhane_oturum=deleted; expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0; path=/; HttpOnly; SameSite=Strict
+
+> docker compose exec -T redis redis-cli EXISTS oturum:d481d873…aef231f4
+0
+
+> curl -s -w ' [HTTP %{http_code}]' -b cerez http://localhost:8080/api/auth/ben
+{"mesaj":"Oturumunuz bulunamadı ya da süresi doldu. Lütfen giriş yapın."} [HTTP 401]

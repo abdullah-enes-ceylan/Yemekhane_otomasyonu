@@ -1,0 +1,30 @@
+# Aşama 3 · Menü önbelleği: ilk istek veritabanından (MISS), ikincisi Redis'ten (HIT). 18.11.2026
+# -b ogrenci: öğrenci hesabının oturum cookie'si
+> docker compose exec -T redis redis-cli EXISTS menu:1:2026-11-20:2
+0
+
+> curl -s -b ogrenci 'http://localhost:8080/api/menu/gunluk?yemekhane_id=1&ogun_id=2&tarih=2026-11-20'   # 1. istek
+{"id": 56, "tarih": "2026-11-20", "ogun": {"id": 2, "ad": "Öğle"}, "fiyat": "40.00", "toplamKalori": 1200} ... yemekler: Mercimek Çorbası, Tavuk Şiş, Patates Püresi, Fıstıklı Baklava
+
+> curl -s -b ogrenci 'http://localhost:8080/api/menu/gunluk?yemekhane_id=1&ogun_id=2&tarih=2026-11-20'   # 2. istek
+{"id": 56, "tarih": "2026-11-20", "ogun": {"id": 2, "ad": "Öğle"}, "fiyat": "40.00", "toplamKalori": 1200} ... yemekler: Mercimek Çorbası, Tavuk Şiş, Patates Püresi, Fıstıklı Baklava
+
+> docker compose logs uygulama | grep ONBELLEK
+uygulama-1  | [18-Nov-2026 17:48:02 Europe/Istanbul] [ONBELLEK] MISS menu:1:2026-11-20:2 (veritabanından okunacak)
+uygulama-1  | [18-Nov-2026 17:48:02 Europe/Istanbul] [ONBELLEK] HIT menu:1:2026-11-20:2
+
+> docker compose exec -T redis redis-cli --scan --pattern 'menu:*'
+menu:1:2026-11-20:2
+menu:1:2026-11-21:3
+
+> docker compose exec -T redis redis-cli GET menu:1:2026-11-20:2
+{"id":56,"tarih":"2026-11-20","yemekhane":{"id":1,"ad":"Merkez Yemekhane"},"ogun":{"id":2,"ad":"Öğle"},"ogrenciFiyati":"40.00","personelFiyati":"90.00","yemekler":[{"id":1,"ad":"Mercimek Çorbası","kategori":"Çorba","kalori":180,"vejetaryen":true,"alerjenler":["Kereviz"],"alerjenIdleri":[9]},{"id":20,"ad":"Tavuk Şiş","kategori":"Ana Yemek","kalori":370,"vejetaryen":false,"alerjenler":["Soya"],"alerjenIdleri":[6]},{"id":27,"ad":"Patates Püresi","kategori":"Yardımcı Yemek","kalori":220,"vejetaryen":true,"alerjenler":["Süt"],"alerjenIdleri":[7]},{"id":38,"ad":"Fıstıklı Baklava","kategori":"Tatlı ve Meyve","kalori":430,"vejetaryen":true,"alerjenler":["Gluten","Sert kabuklu yemişler","Süt"],"alerjenIdleri":[1,7,8]}],"toplamKalori":1200}
+
+> docker compose exec -T redis redis-cli TTL menu:1:2026-11-20:2      # saniye
+195115
+
+> docker compose exec -T redis redis-cli EXPIRETIME menu:1:2026-11-20:2      # bitiş anı, Unix zamanı
+1795208399
+
+> docker compose exec -T uygulama php -r "echo date('Y-m-d H:i:s T', 1795208399);"      # İstanbul saatiyle
+2026-11-20 23:59:59 +03

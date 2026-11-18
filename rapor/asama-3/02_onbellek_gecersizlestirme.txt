@@ -1,0 +1,40 @@
+# Aşama 3 · Yönetici menüyü değiştirince önbellekteki eski kayıt siliniyor, arayüz yeni menüyü gösteriyor. 18.11.2026
+# Menü 86: Merkez Yemekhane, 25.11.2026, Öğle. -b ogrenci / -b yonetici: ilgili hesabın oturum cookie'si.
+# 1) Öğrenci menüyü iki kez açar: önbelleğe girer
+> curl -s -b ogrenci 'http://localhost:8080/api/menu/gunluk?yemekhane_id=1&ogun_id=2&tarih=2026-11-25'
+fiyat: 42.50 | yemekler: Ezogelin Çorbası, Izgara Köfte, Pirinç Pilavı
+> curl -s -b ogrenci 'http://localhost:8080/api/menu/gunluk?yemekhane_id=1&ogun_id=2&tarih=2026-11-25'
+fiyat: 42.50 | yemekler: Ezogelin Çorbası, Izgara Köfte, Pirinç Pilavı
+
+> docker compose exec -T redis redis-cli EXISTS menu:1:2026-11-25:2
+1
+
+# 2) Yönetici menüyü düzenler (öğrenci fiyatı 42,50 → 44,00; tatlı eklenir)
+> curl -s -b yonetici -X PUT -H 'Content-Type: application/json' -d '{"ogrenci_fiyati":"44.00","personel_fiyati":"95.00","yemek_idleri":[2,11,21,38]}' http://localhost:8080/api/admin/menuler/86
+{"menuId":86} [HTTP 200]
+
+> docker compose exec -T redis redis-cli EXISTS menu:1:2026-11-25:2      # eski kayıt silindi
+0
+
+# 3) Öğrenci menüyü yeniden açar: veritabanından yeni menü gelir ve yeniden önbelleğe girer
+> curl -s -b ogrenci 'http://localhost:8080/api/menu/gunluk?yemekhane_id=1&ogun_id=2&tarih=2026-11-25'
+fiyat: 44.00 | yemekler: Ezogelin Çorbası, Izgara Köfte, Pirinç Pilavı, Fıstıklı Baklava
+
+> docker compose exec -T redis redis-cli GET menu:1:2026-11-25:2 | (yemek adları)
+ogrenciFiyati: 44.00 | yemekler: Ezogelin Çorbası, Izgara Köfte, Pirinç Pilavı, Fıstıklı Baklava
+
+> docker compose logs uygulama | grep ONBELLEK
+uygulama-1  | [18-Nov-2026 17:48:34 Europe/Istanbul] [ONBELLEK] MISS menu:1:2026-11-25:2 (veritabanından okunacak)
+uygulama-1  | [18-Nov-2026 17:48:34 Europe/Istanbul] [ONBELLEK] HIT menu:1:2026-11-25:2
+uygulama-1  | [18-Nov-2026 17:48:35 Europe/Istanbul] [ONBELLEK] SIL menu:1:2026-11-25:2 (silindi)
+uygulama-1  | [18-Nov-2026 17:48:36 Europe/Istanbul] [ONBELLEK] MISS menu:1:2026-11-25:2 (veritabanından okunacak)
+
+# 4) Arayüzden aynı deneme (ekran görüntüleri: rapor/ekran/15_*, 16_*)
+#    Günün menüsü 25.11 Öğle açıkken (önbellekte: Fıstıklı Baklava, 1400 kcal) yönetici tatlıyı Sütlaç yaptı:
+> docker compose exec -T redis redis-cli EXISTS menu:1:2026-11-25:2
+1
+> curl -s -b yonetici -X PUT -H 'Content-Type: application/json' -d '{"ogrenci_fiyati":"44.00","personel_fiyati":"95.00","yemek_idleri":[2,11,21,36]}' http://localhost:8080/api/admin/menuler/86
+{"menuId":86}
+> docker compose exec -T redis redis-cli EXISTS menu:1:2026-11-25:2
+0
+#    Sayfa yeniden yüklendiğinde arayüz yeni menüyü gösterdi: Sütlaç, toplam 1250 kcal.

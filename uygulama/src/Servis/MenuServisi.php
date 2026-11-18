@@ -21,6 +21,7 @@ final class MenuServisi
     public function __construct(
         private readonly MenuDeposu $menuDeposu,
         private readonly RezervasyonDeposu $rezervasyonDeposu,
+        private readonly MenuOnbellegi $menuOnbellegi,
     ) {
     }
 
@@ -101,12 +102,29 @@ final class MenuServisi
     }
 
     /**
-     * Menünün değişmeyen içeriği. Aşama 3'te menu:{yemekhane_id}:{tarih}:{ogun_id}
-     * anahtarıyla önbelleğe alınacak kısım budur; kişiye özel hiçbir şey içermez.
+     * Menünün değişmeyen içeriği; menu:{yemekhane_id}:{tarih}:{ogun_id} anahtarıyla önbelleğe giren
+     * kısım budur ve kişiye özel hiçbir şey içermez. Önce Redis'e bakılır (HIT); yoksa (MISS)
+     * replikadan okunup önbelleğe yazılır. "Menü yok" sonucu önbelleğe alınmaz.
      *
      * @return array<string, mixed>|null
      */
     public function menuIcerigi(int $yemekhaneId, string $tarih, int $ogunId): ?array
+    {
+        $onbellekte = $this->menuOnbellegi->oku($yemekhaneId, $tarih, $ogunId);
+        if ($onbellekte !== null) {
+            return $onbellekte;
+        }
+
+        $icerik = $this->veritabanindanMenuIcerigi($yemekhaneId, $tarih, $ogunId);
+        if ($icerik !== null) {
+            $this->menuOnbellegi->yaz($yemekhaneId, $tarih, $ogunId, $icerik);
+        }
+
+        return $icerik;
+    }
+
+    /** @return array<string, mixed>|null */
+    private function veritabanindanMenuIcerigi(int $yemekhaneId, string $tarih, int $ogunId): ?array
     {
         $satirlar = $this->menuDeposu->menuSatirlari($yemekhaneId, $tarih, $ogunId);
         if ($satirlar === []) {

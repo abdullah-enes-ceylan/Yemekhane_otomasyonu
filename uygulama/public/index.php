@@ -32,6 +32,7 @@ use Yemekhane\Hata\HataYakalayici;
 use Yemekhane\Servis\AuthServisi;
 use Yemekhane\Servis\BakiyeServisi;
 use Yemekhane\Servis\DegerlendirmeServisi;
+use Yemekhane\Servis\MenuOnbellegi;
 use Yemekhane\Servis\MenuServisi;
 use Yemekhane\Servis\RezervasyonServisi;
 use Yemekhane\Servis\SaglikServisi;
@@ -58,9 +59,10 @@ try {
     $menuDeposu = new MenuDeposu($veritabani);
     $rezervasyonDeposu = new RezervasyonDeposu($veritabani);
     $replikasyonDeposu = new ReplikasyonDeposu($veritabani);
+    $menuOnbellegi = new MenuOnbellegi($redisBaglantisi);
 
     $authController = new AuthController(new AuthServisi($kullaniciDeposu, $oturumServisi));
-    $menuController = new MenuController(new MenuServisi($menuDeposu, $rezervasyonDeposu));
+    $menuController = new MenuController(new MenuServisi($menuDeposu, $rezervasyonDeposu, $menuOnbellegi));
     $rezervasyonController = new RezervasyonController(new RezervasyonServisi($rezervasyonDeposu, $replikasyonDeposu));
     $bakiyeController = new BakiyeController(new BakiyeServisi(new BakiyeDeposu($veritabani), $replikasyonDeposu));
     $degerlendirmeController = new DegerlendirmeController(

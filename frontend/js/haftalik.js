@@ -3,6 +3,7 @@
 /*
  * Haftalık menü: /api/menu/haftalik'i çağırır ve 7 günü çizer. Fiyat (rolüne göre),
  * boş yer, düğmenin açık/pasif olması ve pasifse nedeni API'den hazır gelir.
+ * Düğme POST /api/rezervasyonlar'ı çağırır (sp_rezervasyon_yap).
  */
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -39,6 +40,34 @@ document.addEventListener('DOMContentLoaded', async () => {
       bildirimGoster(bildirim, hata.message);
     }
   }
+
+  /*
+   * Rezervasyon düğmesi. Süre, kapasite, bakiye kontrolü yordamda; hata olursa
+   * mesajı ("Bakiye yetersiz." gibi) olduğu gibi gösterilir. Başarıda gösterilen bakiye
+   * yordamın döndürdüğü, primary'deki taze değerdir. Boş yer JS'te düşülmez; hafta API'den yeniden alınır.
+   */
+  alan.addEventListener('click', async (olay) => {
+    const dugme = olay.target.closest('button[data-menu-id]');
+    if (!dugme || dugme.disabled) return;
+
+    dugme.disabled = true;
+    dugme.setAttribute('aria-busy', 'true');
+    try {
+      const sonuc = await Api.post('/rezervasyonlar', { menu_id: Number(dugme.dataset.menuId) });
+      await haftayiGetir(hafta?.baslangic);
+      bildirimGoster(
+        bildirim,
+        `Rezervasyon yapıldı. Ücret: ${paraYaz(sonuc.ucret)} · Kalan bakiye: ${paraYaz(sonuc.bakiye)}`,
+        'basari',
+      );
+    } catch (hata) {
+      bildirimGoster(bildirim, hata.message);
+      dugme.disabled = false;
+    } finally {
+      dugme.removeAttribute('aria-busy');
+    }
+    bildirim.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  });
 
   form.addEventListener('change', () => haftayiGetir(hafta?.baslangic));
   form.addEventListener('submit', (olay) => olay.preventDefault());

@@ -11,6 +11,7 @@ const ROL_ADLARI = { ogrenci: 'Öğrenci', personel: 'Personel', yonetici: 'Yön
 const SAYFALAR = [
   { adres: '/menu.html', ad: 'Günün menüsü' },
   { adres: '/haftalik.html', ad: 'Haftalık menü' },
+  { adres: '/rezervasyonlarim.html', ad: 'Rezervasyonlarım' },
 ];
 
 function gezinmeyiCiz() {

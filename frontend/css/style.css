@@ -202,6 +202,31 @@ main.kapsayici { padding-block: 1.25rem 2rem; }
 .ogun-eylem { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; }
 .kapali-nedeni { font-size: var(--boyut-kucuk); color: var(--metin-soluk); }
 
+/* İkincil, geri alınabilir ama dikkat isteyen eylem (ör. iptal) */
+.dugme-tehlike {
+  background: var(--yuzey);
+  color: var(--hata);
+  border: 1px solid var(--hata);
+}
+.dugme-tehlike:hover { background: var(--hata-zemin); color: var(--hata); }
+
+/* ---------- Rezervasyonlarım ---------- */
+.rezervasyon-grubu h2 { font-size: var(--boyut-buyuk); margin-bottom: 0.5rem; }
+.rozet-sayi { background: var(--zemin); color: var(--metin-soluk); }
+.rezervasyon-listesi { list-style: none; margin: 0; padding: 0; }
+.rezervasyon-satiri {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.2rem 0.75rem;
+  align-items: center;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--zemin);
+}
+.rezervasyon-satiri:first-child { border-top: 0; padding-top: 0.25rem; }
+.rezervasyon-baslik { font-weight: 600; }
+.rezervasyon-ayrinti { grid-column: 1; font-size: var(--boyut-kucuk); color: var(--metin-soluk); }
+.rezervasyon-satiri .dugme { grid-column: 2; grid-row: 2 / span 2; }
+
 @media (min-width: 640px) {
   .kart { padding: 1.5rem; }
   .secim-satiri { grid-template-columns: repeat(3, 1fr); }

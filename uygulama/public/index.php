@@ -13,10 +13,12 @@ use Yemekhane\Cekirdek\Istek;
 use Yemekhane\Cekirdek\Yonlendirici;
 use Yemekhane\Controller\AuthController;
 use Yemekhane\Controller\BakiyeController;
+use Yemekhane\Controller\DegerlendirmeController;
 use Yemekhane\Controller\MenuController;
 use Yemekhane\Controller\RezervasyonController;
 use Yemekhane\Controller\SaglikController;
 use Yemekhane\Depo\BakiyeDeposu;
+use Yemekhane\Depo\DegerlendirmeDeposu;
 use Yemekhane\Depo\KullaniciDeposu;
 use Yemekhane\Depo\MenuDeposu;
 use Yemekhane\Depo\ReplikasyonDeposu;
@@ -27,6 +29,7 @@ use Yemekhane\Guvenlik\OturumServisi;
 use Yemekhane\Hata\HataYakalayici;
 use Yemekhane\Servis\AuthServisi;
 use Yemekhane\Servis\BakiyeServisi;
+use Yemekhane\Servis\DegerlendirmeServisi;
 use Yemekhane\Servis\MenuServisi;
 use Yemekhane\Servis\RezervasyonServisi;
 use Yemekhane\Servis\SaglikServisi;
@@ -54,6 +57,9 @@ try {
     $replikasyonDeposu = new ReplikasyonDeposu($veritabani);
     $rezervasyonController = new RezervasyonController(new RezervasyonServisi($rezervasyonDeposu, $replikasyonDeposu));
     $bakiyeController = new BakiyeController(new BakiyeServisi(new BakiyeDeposu($veritabani), $replikasyonDeposu));
+    $degerlendirmeController = new DegerlendirmeController(
+        new DegerlendirmeServisi(new DegerlendirmeDeposu($veritabani), $replikasyonDeposu),
+    );
 
     $yonlendirici = new Yonlendirici();
     $yonlendirici->get('/api/saglik', $saglikController->durum(...));
@@ -68,6 +74,8 @@ try {
     $yonlendirici->post('/api/rezervasyonlar/{id}/iptal', $rezervasyonController->iptal(...));
     $yonlendirici->get('/api/bakiye', $bakiyeController->ozet(...));
     $yonlendirici->post('/api/bakiye/yukle', $bakiyeController->yukle(...));
+    $yonlendirici->get('/api/degerlendirmeler', $degerlendirmeController->listele(...));
+    $yonlendirici->post('/api/degerlendirmeler', $degerlendirmeController->ekle(...));
 
     $istek = (new OturumFiltresi($oturumServisi))->uygula(Istek::globallerdenOlustur());
     $yanit = $yonlendirici->yonlendir($istek);

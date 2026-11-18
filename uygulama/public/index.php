@@ -11,6 +11,7 @@ use Yemekhane\Ayar\RedisBaglantisi;
 use Yemekhane\Ayar\Veritabani;
 use Yemekhane\Cekirdek\Istek;
 use Yemekhane\Cekirdek\Yonlendirici;
+use Yemekhane\Controller\AdminController;
 use Yemekhane\Controller\AuthController;
 use Yemekhane\Controller\BakiyeController;
 use Yemekhane\Controller\DegerlendirmeController;
@@ -21,6 +22,7 @@ use Yemekhane\Depo\BakiyeDeposu;
 use Yemekhane\Depo\DegerlendirmeDeposu;
 use Yemekhane\Depo\KullaniciDeposu;
 use Yemekhane\Depo\MenuDeposu;
+use Yemekhane\Depo\MenuYonetimDeposu;
 use Yemekhane\Depo\ReplikasyonDeposu;
 use Yemekhane\Depo\RezervasyonDeposu;
 use Yemekhane\Depo\SaglikDeposu;
@@ -33,6 +35,7 @@ use Yemekhane\Servis\DegerlendirmeServisi;
 use Yemekhane\Servis\MenuServisi;
 use Yemekhane\Servis\RezervasyonServisi;
 use Yemekhane\Servis\SaglikServisi;
+use Yemekhane\Servis\YonetimServisi;
 
 require __DIR__ . '/../vendor/autoload.php';
 
@@ -51,15 +54,25 @@ try {
     $oturumServisi = new OturumServisi($redisBaglantisi);
 
     $saglikController = new SaglikController(new SaglikServisi(new SaglikDeposu($veritabani), $redisBaglantisi));
-    $authController = new AuthController(new AuthServisi(new KullaniciDeposu($veritabani), $oturumServisi));
+    $kullaniciDeposu = new KullaniciDeposu($veritabani);
+    $menuDeposu = new MenuDeposu($veritabani);
     $rezervasyonDeposu = new RezervasyonDeposu($veritabani);
-    $menuController = new MenuController(new MenuServisi(new MenuDeposu($veritabani), $rezervasyonDeposu));
     $replikasyonDeposu = new ReplikasyonDeposu($veritabani);
+
+    $authController = new AuthController(new AuthServisi($kullaniciDeposu, $oturumServisi));
+    $menuController = new MenuController(new MenuServisi($menuDeposu, $rezervasyonDeposu));
     $rezervasyonController = new RezervasyonController(new RezervasyonServisi($rezervasyonDeposu, $replikasyonDeposu));
     $bakiyeController = new BakiyeController(new BakiyeServisi(new BakiyeDeposu($veritabani), $replikasyonDeposu));
     $degerlendirmeController = new DegerlendirmeController(
         new DegerlendirmeServisi(new DegerlendirmeDeposu($veritabani), $replikasyonDeposu),
     );
+    $adminController = new AdminController(new YonetimServisi(
+        new MenuYonetimDeposu($veritabani),
+        $menuDeposu,
+        $kullaniciDeposu,
+        $rezervasyonDeposu,
+        $replikasyonDeposu,
+    ));
 
     $yonlendirici = new Yonlendirici();
     $yonlendirici->get('/api/saglik', $saglikController->durum(...));
@@ -76,6 +89,13 @@ try {
     $yonlendirici->post('/api/bakiye/yukle', $bakiyeController->yukle(...));
     $yonlendirici->get('/api/degerlendirmeler', $degerlendirmeController->listele(...));
     $yonlendirici->post('/api/degerlendirmeler', $degerlendirmeController->ekle(...));
+    // Yönetici: OturumFiltresi /api/admin/ önekli her yolda rolü denetler (403)
+    $yonlendirici->get('/api/admin/menuler', $adminController->menuRaporu(...));
+    $yonlendirici->post('/api/admin/menuler', $adminController->menuOlustur(...));
+    $yonlendirici->get('/api/admin/menuler/{id}', $adminController->menu(...));
+    $yonlendirici->put('/api/admin/menuler/{id}', $adminController->menuGuncelle(...));
+    $yonlendirici->get('/api/admin/yemekler', $adminController->yemekler(...));
+    $yonlendirici->post('/api/admin/turnike', $adminController->turnike(...));
 
     $istek = (new OturumFiltresi($oturumServisi))->uygula(Istek::globallerdenOlustur());
     $yanit = $yonlendirici->yonlendir($istek);

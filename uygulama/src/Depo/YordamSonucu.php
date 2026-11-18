@@ -21,7 +21,7 @@ use UnexpectedValueException;
 final class YordamSonucu
 {
     /**
-     * @param list<int|string> $parametreler
+     * @param list<int|string|null> $parametreler
      * @return array<string, mixed>
      */
     public static function tekSatir(PDOStatement $sorgu, array $parametreler): array

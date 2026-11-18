@@ -90,4 +90,17 @@ final class RezervasyonDeposu
 
         return YordamSonucu::tekSatir($sorgu, [$kullaniciId, $rezervasyonId]);
     }
+
+    /**
+     * Turnike geçişi: sp_turnike_gecis, primary'de. Menüyü yordam kendisi bulur (tarih + öğünün
+     * servis aralığı). $zaman null ise yordam NOW() kullanır; test için belirli bir an verilebilir.
+     *
+     * @return array{rezervasyon_id: int|string, menu_id: int|string, ogun: string}
+     */
+    public function turnikeGecisi(int $kullaniciId, int $yemekhaneId, ?string $zaman): array
+    {
+        $sorgu = $this->veritabani->primaryDb()->prepare('CALL sp_turnike_gecis(?, ?, ?)');
+
+        return YordamSonucu::tekSatir($sorgu, [$kullaniciId, $yemekhaneId, $zaman]);
+    }
 }

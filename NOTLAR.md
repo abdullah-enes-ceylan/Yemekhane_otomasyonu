@@ -96,3 +96,15 @@ Bu kararlar raporun "Varsayımlar" bölümüne de yazılır.
 ## 23. Yönetici paneli bağlantısı
 **Karar:** Gezinmede yalnızca yöneticiye gösterilir; yetkinin kendisi `OturumFiltresi`'nde (403).
 **Neden:** Gösterim kolaylığı; güvenlik arayüze bırakılmaz.
+
+## 24. Menü önbelleği ayrıntıları (Aşama 3, 18 Kas 2026)
+**Karar:** Anahtar `menu:{yemekhane_id}:{tarih}:{ogun_id}`; değer menünün içeriği (JSON); süre `SET ... EXAT` ile anahtardaki tarihin 23:59:59'u (Europe/Istanbul). Tarihi geçmiş menü ve "menü yok" önbelleğe alınmaz. Her okuma `[ONBELLEK] HIT/MISS`, silme `[ONBELLEK] SIL` olarak günlüğe yazılır.
+**Neden:** "O günün sonuna kadar" şartı; `EXAT` değer ile bitiş anını tek komutta yazar (araya kesinti girerse süresiz kayıt kalmaz). "Menü yok" önbelleğe girseydi yönetici menüyü oluşturduğunda öğrenci gün sonuna kadar göremeyebilirdi.
+
+## 25. Önbellek silme sırası
+**Karar:** Yönetici menüyü düzenleyince: veritabanı (primary) → replikanın yetişmesini bekle → `DEL menu:...`. Oluşturmada da aynı anahtar silinir.
+**Neden:** Menü replikadan okunuyor. Anahtar replika yetişmeden silinirse araya giren bir istek replikadan eski menüyü okuyup gün sonuna kadar yeniden önbelleğe yazabilir.
+
+## 26. Redis'e ulaşılamazsa
+**Karar:** Menü önbelleği atlanır, menü veritabanından gelir (günlüğe `[ONBELLEK] HATA`). Oturum doğrulanamadığı için oturum gerektiren istekler genel hata (500) alır.
+**Neden:** Önbellek hızlandırıcıdır, zorunlu değildir; oturum güvenlik bilgisidir, doğrulanamıyorsa erişim verilmez.

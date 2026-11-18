@@ -60,3 +60,23 @@ Bu kararlar raporun "Varsayımlar" bölümüne de yazılır.
 ## 14. Bakiye ekranındaki güncel bakiye hangi veritabanından? (16 Kas 2026)
 **Karar:** Bakiye sayısı **primary**'den, hareket geçmişi **replika**'dan okunur. Rezervasyon/iptal/yükleme sonrası gösterilen bakiye zaten yordamın döndürdüğü (primary) değerdir.
 **Neden:** PDF yalnızca "rezervasyondan hemen sonra gösterilen bakiye kaynaktan okunur" ve "listeleme replikaya" diyor; ayrıca açılan Bakiye sayfasını söylemiyor. Kullanıcı rezervasyondan hemen sonra Bakiye sayfasına geçerse replika bir an geride olabilir ve eski bakiye görünür. Para bilgisinin her zaman doğru olması, tek satırlık bir sorgunun primary'ye gitmesinden daha önemli. Hareket geçmişi listeleme olduğu için kurala uygun olarak replikada kalır.
+
+## 15. Yazmadan sonra replikadan okuma ("kendi yazdığını oku") (18 Kas 2026)
+**Karar:** Para hareketi yapan her yazmadan (rezervasyon, iptal, yükleme) sonra primary'nin GTID kümesinin replikaya geçmesi en çok 1 sn beklenir (`ReplikasyonDeposu`, `WAIT_FOR_EXECUTED_GTID_SET`). Süre dolarsa yazma geçerlidir, yalnızca günlüğe uyarı düşer.
+**Neden:** Ölçüldü: primary'ye yazıp hemen replikadan okuyunca 20 denemenin 20'sinde eski değer geldi; tarayıcıda iptal edilen rezervasyon listede hâlâ "aktif" görünüyordu. Listeleri primary'den okumak okuma/yazma ayrımını bozardı; arayüzde satırı elle değiştirmek iş kuralını JS'e taşırdı. Bekleme yaklaşık 10 ms.
+
+## 16. İptal uç noktası
+**Karar:** `POST /api/rezervasyonlar/{id}/iptal` (DELETE değil).
+**Neden:** Kayıt silinmiyor; durumu 'iptal' oluyor ve ücret iade ediliyor.
+
+## 17. Rezervasyonlarım: gruplama ve "iptal edilebilir mi"
+**Karar:** API aktif / kullanıldı / iptal gruplarını ve her kayıt için `iptalEdilebilir` alanını döner. `iptalEdilebilir`, `sp_rezervasyon_iptal` ile aynı koşul (`durum = 'aktif' AND NOW() < TIMESTAMP(tarih, son_saat)`) ile SQL'de hesaplanır.
+**Neden:** Arayüzde iş kuralı olmasın; düğme açıkken yordamın reddetmesi (ya da tersi) olmasın.
+
+## 18. Bakiye hareket geçmişi
+**Karar:** Son 50 hareket, sayfalama yok.
+**Neden:** Şart sayfalama istemiyor; telefonda okunabilir kalır.
+
+## 19. Yükleme tutarının denetimi ve SP çağrı kalıbı
+**Karar:** `Girdi::tutar()` yalnızca biçimi denetler (string, en çok 2 ondalık); 10–1000 TL kuralı yordamda. SP çağrısının ortak adımları (execute → fetch → closeCursor) `YordamSonucu::tekSatir()`'da; hedef bağlantı (`primaryDb()`) her depo metodunda açıkça yazılır.
+**Neden:** Kural tek yerde kalır, tutar float'a çevrilmeden DECIMAL'e gider. `closeCursor()` unutulamaz; hangi sunucuya gidildiği yine o satırdan okunur.

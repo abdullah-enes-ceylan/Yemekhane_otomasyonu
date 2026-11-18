@@ -80,3 +80,19 @@ Bu kararlar raporun "Varsayımlar" bölümüne de yazılır.
 ## 19. Yükleme tutarının denetimi ve SP çağrı kalıbı
 **Karar:** `Girdi::tutar()` yalnızca biçimi denetler (string, en çok 2 ondalık); 10–1000 TL kuralı yordamda. SP çağrısının ortak adımları (execute → fetch → closeCursor) `YordamSonucu::tekSatir()`'da; hedef bağlantı (`primaryDb()`) her depo metodunda açıkça yazılır.
 **Neden:** Kural tek yerde kalır, tutar float'a çevrilmeden DECIMAL'e gider. `closeCursor()` unutulamaz; hangi sunucuya gidildiği yine o satırdan okunur.
+
+## 20. Değerlendirme kuralları (18 Kas 2026)
+**Karar:** Değerlendirme bir kez verilir, sonradan değiştirilemez (ikinci deneme 409). "Kullanılmış menü" kontrolü yazmadan hemen önce **primary**'den okunur; liste replikadan.
+**Neden:** Şema "kişi başına menü başına tek oy" diyor (UNIQUE). Kontrol bir yazmanın ön koşulu; turnikeden hemen sonra replika geride olsa bile doğru karar verilmeli.
+
+## 21. Menü oluşturma / düzenleme
+**Karar:** Yordam yok; `menuler` + `menu_yemekleri` primary'de uygulamanın açtığı tek transaction'da. Düzenlemede yalnızca fiyatlar ve yemekler değişir; yemekhane/tarih/öğün sabit. Geçmiş tarihe menü oluşturulmaz, geçmiş menü düzenlenmez. En az bir yemek zorunlu.
+**Neden:** İki tablo birlikte değişiyor; yarım menü oluşmamalı. Yemekhane+tarih+öğün menünün kimliği ve Aşama 3 önbellek anahtarı. Yemeksiz menü `v_menu_detay`'da görünmez (Kararlar #12).
+
+## 22. Uygulama içi iş kuralı hatalarının HTTP kodları
+**Karar:** Kural ihlali 422, tekrar eden kayıt (1062) 409, yetki 403, bulunamadı 404, biçim 400.
+**Neden:** Yordam hatalarıyla (422) tutarlı; arayüz kodlara bakmaz, mesajı gösterir.
+
+## 23. Yönetici paneli bağlantısı
+**Karar:** Gezinmede yalnızca yöneticiye gösterilir; yetkinin kendisi `OturumFiltresi`'nde (403).
+**Neden:** Gösterim kolaylığı; güvenlik arayüze bırakılmaz.
